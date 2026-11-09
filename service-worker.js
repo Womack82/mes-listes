@@ -5,7 +5,7 @@
 
 // Change ce numéro (v2, v3...) à chaque modification des fichiers,
 // sinon le téléphone continuera d'utiliser l'ancienne copie.
-const NOM_CACHE = "mes-listes-v8";
+const NOM_CACHE = "mes-listes-v9";
 
 const FICHIERS = [
   "./",
@@ -16,6 +16,7 @@ const FICHIERS = [
   "icons/icon-180.png",
   "icons/icon-192.png",
   "icons/icon-512.png",
+  "icons/tmdb.svg",
 ];
 
 // À l'installation : on met tous les fichiers en cache
