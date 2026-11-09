@@ -4,8 +4,9 @@
 
 // Numéro de version affiché à côté du titre.
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
-// (on change les deux à chaque modification de l'app).
-const VERSION = "v10";
+// Nouvelle demande → numéro principal suivant (v11, v12…).
+// Correction ou modification d'une demande existante → sous-numéro (v10.1, v10.2…).
+const VERSION = "v10.1";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";

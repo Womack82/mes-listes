@@ -25,3 +25,4 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 - [x] TMDB étape 3 : petite affiche et année affichées dans la liste (emoji si pas d'affiche ou hors ligne) ; un élément supprimé ne garde que titre, type et date
 - [x] TMDB étape 4 : logo TMDB et mention « This product uses the TMDB API but is not endorsed or certified by TMDB » en bas de l'app
 - [x] Numéro de version (ex : v10) affiché à côté du titre, pour vérifier que la mise à jour est bien arrivée
+- [x] Règle de numérotation : nouvelle demande → numéro principal (v11, v12…) ; modification d'une demande existante → sous-numéro (v10.1, v10.2…)

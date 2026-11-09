@@ -3,10 +3,11 @@
 // pour qu'elle s'ouvre même sans connexion internet.
 // ============================================================
 
-// Change ce numéro (v2, v3...) à chaque modification des fichiers,
-// sinon le téléphone continuera d'utiliser l'ancienne copie.
+// Change ce numéro à chaque modification des fichiers, sinon le
+// téléphone continuera d'utiliser l'ancienne copie :
+// nouvelle demande → v11, v12… ; modification d'une demande existante → v10.1, v10.2…
 // ⚠️ Change aussi VERSION en haut de app.js (affichée à côté du titre).
-const NOM_CACHE = "mes-listes-v10";
+const NOM_CACHE = "mes-listes-v10.1";
 
 const FICHIERS = [
   "./",
