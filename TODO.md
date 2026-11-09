@@ -24,3 +24,4 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 - [x] TMDB étape 2 : recherche films et séries en français pendant la saisie (titre, année, affiche), type mis automatiquement, saisie manuelle toujours possible ; on stocke seulement titre, année, adresse de l'affiche et identifiant TMDB ; changer le type d'un élément retire ses infos TMDB ; fichier de sauvegarde en version 2 (lit toujours la version 1)
 - [x] TMDB étape 3 : petite affiche et année affichées dans la liste (emoji si pas d'affiche ou hors ligne) ; un élément supprimé ne garde que titre, type et date
 - [x] TMDB étape 4 : logo TMDB et mention « This product uses the TMDB API but is not endorsed or certified by TMDB » en bas de l'app
+- [x] Numéro de version (ex : v10) affiché à côté du titre, pour vérifier que la mise à jour est bien arrivée

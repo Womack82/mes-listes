@@ -2,6 +2,11 @@
 // app.js : toute la logique de l'application
 // ============================================================
 
+// Numéro de version affiché à côté du titre.
+// ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
+// (on change les deux à chaque modification de l'app).
+const VERSION = "v10";
+
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
 const CLE_SUPPRIMES = "mes-listes-supprimes";
@@ -790,6 +795,7 @@ champType.addEventListener("change", programmerRecherche);
 // Les sections "Terminés" et "Supprimés" sont fermées à chaque ouverture
 // de l'app (c'est le comportement par défaut de <details>).
 localStorage.removeItem("mes-listes-section-ouverte"); // ancien réglage, devenu inutile
+document.getElementById("version").textContent = VERSION;
 afficher();
 
 // Enregistre le service worker (permet le fonctionnement hors ligne)

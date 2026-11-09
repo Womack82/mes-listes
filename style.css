@@ -333,3 +333,6 @@ li.fait .vignette { opacity: 0.5; } /* affiche grisée quand c'est terminé */
 }
 .mention-tmdb img { display: inline-block; height: 16px; width: auto; }
 .mention-tmdb p { margin: 6px 0 0; }
+
+/* ---------- Numéro de version à côté du titre ---------- */
+.version { font-size: 0.9rem; font-weight: 400; color: var(--gris); vertical-align: middle; }

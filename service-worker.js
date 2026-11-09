@@ -5,7 +5,8 @@
 
 // Change ce numéro (v2, v3...) à chaque modification des fichiers,
 // sinon le téléphone continuera d'utiliser l'ancienne copie.
-const NOM_CACHE = "mes-listes-v9";
+// ⚠️ Change aussi VERSION en haut de app.js (affichée à côté du titre).
+const NOM_CACHE = "mes-listes-v10";
 
 const FICHIERS = [
   "./",
