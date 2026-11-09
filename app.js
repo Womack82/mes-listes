@@ -9,6 +9,9 @@ const CLE_SUPPRIMES = "mes-listes-supprimes";
 // Emoji affiché devant chaque type
 const EMOJIS = { film: "🎬", serie: "📺", jeu: "🎮", recette: "🍳", autre: "📌" };
 
+// Début de l'adresse des affiches TMDB (w185 = largeur 185 pixels)
+const ADRESSE_AFFICHES = "https://image.tmdb.org/t/p/w185";
+
 // --- 1. Charger les données sauvegardées --------------------
 // localStorage ne stocke que du texte : on transforme le texte en
 // tableau avec JSON.parse. Si rien n'est enregistré, on part d'un tableau vide.
@@ -204,15 +207,30 @@ function creerLigneSupprimee(el) {
 }
 
 // --- 4. Les actions ------------------------------------------
-function ajouter(titre, type) {
-  elements.push({
+// infosTmdb (facultatif) : { annee, affiche, idTmdb } quand le titre
+// a été choisi dans la recherche TMDB
+function ajouter(titre, type, infosTmdb = null) {
+  const el = {
     id: Date.now().toString(), // identifiant unique basé sur l'heure
     titre: titre,
     type: type,
     fait: false,
-  });
+  };
+  if (infosTmdb) {
+    if (infosTmdb.annee) el.annee = infosTmdb.annee;
+    if (infosTmdb.affiche) el.affiche = infosTmdb.affiche;
+    el.idTmdb = infosTmdb.idTmdb;
+  }
+  elements.push(el);
   sauvegarder();
   afficher();
+}
+
+// Retire les informations TMDB d'un élément (affiche, année, identifiant)
+function retirerInfosTmdb(el) {
+  delete el.annee;
+  delete el.affiche;
+  delete el.idTmdb;
 }
 
 function basculer(id) {
@@ -235,6 +253,9 @@ function annulerEdition() {
 
 function modifier(id, titre, type) {
   const el = elements.find((e) => e.id === id);
+  // Si le type change, les infos TMDB ne correspondent plus
+  // (un identifiant TMDB de film ne désigne pas la même chose côté séries)
+  if (type !== el.type) retirerInfosTmdb(el);
   el.titre = titre;
   el.type = type;
   idEnEdition = null;
@@ -273,8 +294,9 @@ formulaire.addEventListener("submit", (evenement) => {
   evenement.preventDefault(); // empêche la page de se recharger
   const titre = champTitre.value.trim();
   if (titre === "") return;
-  ajouter(titre, champType.value);
+  ajouter(titre, champType.value); // saisie manuelle : pas d'infos TMDB
   champTitre.value = "";
+  masquerRecherche();
 });
 
 for (const bouton of boutonsFiltre) {
@@ -290,7 +312,9 @@ for (const bouton of boutonsFiltre) {
 // Numéro de version du format du fichier. Si un jour on change la forme
 // du fichier, on passera à 2 et on saura lire les anciens fichiers.
 const FORMAT_NOM = "mes-listes";
-const FORMAT_VERSION = 1;
+// Version 1 : titre, type, fait. Version 2 : + année, affiche, identifiant TMDB
+// (facultatifs). L'app sait lire les deux.
+const FORMAT_VERSION = 2;
 
 const boutonExporter = document.getElementById("bouton-exporter");
 const boutonImporter = document.getElementById("bouton-importer");
@@ -397,7 +421,25 @@ function verifierFichier(donnees) {
     if (!titreValide(el.titre)) throw new Error(`${numero} n'a pas de titre.`);
     if (!typeValide(el.type)) throw new Error(`${numero} a un type inconnu (« ${el.type} »).`);
     if (typeof el.fait !== "boolean") throw new Error(`${numero} n'indique pas s'il est terminé.`);
-    return { id: el.id, titre: el.titre.trim(), type: el.type, fait: el.fait };
+    const propre = { id: el.id, titre: el.titre.trim(), type: el.type, fait: el.fait };
+
+    // Infos TMDB (version 2, facultatives) : vérifiées si elles sont là
+    if (el.idTmdb !== undefined) {
+      if (!Number.isInteger(el.idTmdb) || el.idTmdb <= 0) throw new Error(`${numero} a un identifiant TMDB invalide.`);
+      if (el.type !== "film" && el.type !== "serie") throw new Error(`${numero} a un identifiant TMDB mais n'est ni un film ni une série.`);
+      propre.idTmdb = el.idTmdb;
+    }
+    if (el.annee !== undefined) {
+      if (!Number.isInteger(el.annee) || el.annee < 1800 || el.annee > 2200) throw new Error(`${numero} a une année invalide.`);
+      propre.annee = el.annee;
+    }
+    if (el.affiche !== undefined) {
+      if (typeof el.affiche !== "string" || !el.affiche.startsWith(ADRESSE_AFFICHES)) {
+        throw new Error(`${numero} a une adresse d'affiche invalide.`);
+      }
+      propre.affiche = el.affiche;
+    }
+    return propre;
   });
 
   const nouveauxSupprimes = donnees.supprimes.map((el, i) => {
@@ -578,7 +620,155 @@ boutonEffacerCle.addEventListener("click", () => {
 
 afficherEtatCle();
 
-// --- 8. Démarrage --------------------------------------------
+// --- 8. TMDB : la recherche de films et séries ---------------
+const etatRecherche = document.getElementById("etat-recherche");
+const resultatsRecherche = document.getElementById("resultats-recherche");
+
+let minuteurRecherche = null;
+// Numéro de la dernière recherche lancée : si une ancienne réponse arrive
+// après une plus récente, on l'ignore
+let numeroRecherche = 0;
+
+function masquerRecherche() {
+  clearTimeout(minuteurRecherche);
+  numeroRecherche++; // les réponses encore en route seront ignorées
+  resultatsRecherche.hidden = true;
+  resultatsRecherche.innerHTML = "";
+  etatRecherche.hidden = true;
+}
+
+function afficherEtatRecherche(texte) {
+  resultatsRecherche.hidden = true;
+  resultatsRecherche.innerHTML = "";
+  etatRecherche.textContent = texte;
+  etatRecherche.hidden = false;
+}
+
+// Transforme un résultat TMDB en { titre, type, annee, affiche, idTmdb }
+// (on ne garde que ça : pas de synopsis, de note, de saisons…)
+function convertirResultat(r) {
+  const date = r.release_date || r.first_air_date || "";
+  const annee = parseInt(date.slice(0, 4), 10);
+  return {
+    titre: r.title || r.name,
+    type: r.media_type === "movie" ? "film" : "serie",
+    annee: Number.isInteger(annee) ? annee : null,
+    affiche: r.poster_path ? ADRESSE_AFFICHES + r.poster_path : null,
+    idTmdb: r.id,
+  };
+}
+
+// Fabrique la petite image d'un élément : l'affiche, ou l'emoji du type
+// s'il n'y a pas d'affiche ou si elle ne se charge pas (hors ligne)
+function creerVignette(affiche, type) {
+  const emoji = document.createElement("span");
+  emoji.className = "vignette vignette-vide";
+  emoji.textContent = EMOJIS[type];
+  if (!affiche) return emoji;
+
+  const image = document.createElement("img");
+  image.className = "vignette";
+  image.src = affiche;
+  image.alt = "";
+  image.loading = "lazy";
+  image.addEventListener("error", () => image.replaceWith(emoji));
+  return image;
+}
+
+async function rechercher() {
+  const texte = champTitre.value.trim();
+  const type = champType.value;
+
+  // La recherche ne concerne que les films et séries, à partir de 2 lettres
+  if ((type !== "film" && type !== "serie") || texte.length < 2) {
+    masquerRecherche();
+    return;
+  }
+  if (lireCleTmdb() === "") {
+    afficherEtatRecherche("Pour chercher sur TMDB, colle ta clé dans « Réglages » en bas. Tu peux aussi ajouter le titre à la main.");
+    return;
+  }
+  if (!navigator.onLine) {
+    afficherEtatRecherche("Hors ligne : recherche impossible. Tu peux ajouter le titre à la main.");
+    return;
+  }
+
+  const numero = ++numeroRecherche;
+  etatRecherche.textContent = "Recherche…";
+  etatRecherche.hidden = false;
+
+  let donnees;
+  try {
+    // search/multi renvoie films, séries et personnes ensemble
+    donnees = await appelerTmdb("/search/multi", {
+      query: texte,
+      language: "fr-FR",
+      include_adult: "false",
+    });
+  } catch (erreur) {
+    if (numero !== numeroRecherche) return;
+    afficherEtatRecherche(
+      erreur.statut === 401
+        ? "TMDB refuse ta clé. Vérifie-la dans « Réglages ». Tu peux ajouter le titre à la main."
+        : "Recherche impossible (connexion ?). Tu peux ajouter le titre à la main."
+    );
+    return;
+  }
+  if (numero !== numeroRecherche) return; // une recherche plus récente a été lancée
+
+  const resultats = donnees.results
+    .filter((r) => r.media_type === "movie" || r.media_type === "tv") // sans les personnes
+    .slice(0, 8)
+    .map(convertirResultat);
+
+  if (resultats.length === 0) {
+    afficherEtatRecherche("Aucun résultat sur TMDB. Appuie sur « Ajouter » pour l'ajouter à la main.");
+    return;
+  }
+
+  etatRecherche.textContent = "Touche un résultat pour l'ajouter, ou « Ajouter » pour garder ton texte :";
+  resultatsRecherche.innerHTML = "";
+  for (const res of resultats) {
+    const li = document.createElement("li");
+    const bouton = document.createElement("button");
+    bouton.type = "button";
+    bouton.className = "resultat";
+
+    const titre = document.createElement("span");
+    titre.className = "titre";
+    titre.textContent = res.titre;
+
+    const details = document.createElement("span");
+    details.className = "details";
+    const nomType = res.type === "film" ? "🎬 Film" : "📺 Série";
+    details.textContent = res.annee ? `${nomType} · ${res.annee}` : nomType;
+
+    const textes = document.createElement("span");
+    textes.className = "textes";
+    textes.append(titre, details);
+
+    bouton.append(creerVignette(res.affiche, res.type), textes);
+    bouton.addEventListener("click", () => {
+      ajouter(res.titre, res.type, res);
+      champTitre.value = "";
+      masquerRecherche();
+    });
+    li.append(bouton);
+    resultatsRecherche.append(li);
+  }
+  resultatsRecherche.hidden = false;
+}
+
+// On attend une petite pause dans la frappe avant de chercher
+// (sinon une recherche partirait à chaque lettre)
+function programmerRecherche() {
+  clearTimeout(minuteurRecherche);
+  minuteurRecherche = setTimeout(rechercher, 400);
+}
+champTitre.addEventListener("input", programmerRecherche);
+champType.addEventListener("change", programmerRecherche);
+
+// --- 9. Démarrage --------------------------------------------
 // Les sections "Terminés" et "Supprimés" sont fermées à chaque ouverture
 // de l'app (c'est le comportement par défaut de <details>).
 localStorage.removeItem("mes-listes-section-ouverte"); // ancien réglage, devenu inutile
