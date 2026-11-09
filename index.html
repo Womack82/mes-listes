@@ -45,9 +45,17 @@
       <button data-type="autre">📌 Autres</button>
     </nav>
 
-    <!-- La liste est remplie par app.js -->
-    <ul id="liste"></ul>
-    <p id="message-vide" hidden>Rien ici pour l'instant.</p>
+    <!-- La liste des éléments à faire, remplie par app.js -->
+    <ul id="liste" class="liste"></ul>
+    <p id="message-vide" hidden></p>
+
+    <!-- Section des éléments terminés.
+         <details> est une balise HTML qui s'ouvre/se ferme toute seule
+         quand on touche son titre <summary>. -->
+    <details id="section-faits" hidden>
+      <summary>Terminés (<span id="compteur-faits">0</span>)</summary>
+      <ul id="liste-faits" class="liste"></ul>
+    </details>
   </main>
 
   <script src="app.js"></script>

@@ -39,43 +39,71 @@ const champType = document.getElementById("champ-type");
 const liste = document.getElementById("liste");
 const messageVide = document.getElementById("message-vide");
 const boutonsFiltre = document.querySelectorAll("#filtres button");
+const sectionFaits = document.getElementById("section-faits");
+const listeFaits = document.getElementById("liste-faits");
+const compteurFaits = document.getElementById("compteur-faits");
 
-// --- 3. Afficher la liste ------------------------------------
-// On vide la liste puis on recrée une ligne <li> par élément à afficher.
+// La section "Terminés" se souvient si tu l'as laissée ouverte ou fermée
+const CLE_SECTION = "mes-listes-section-ouverte";
+sectionFaits.open = localStorage.getItem(CLE_SECTION) === "oui";
+sectionFaits.addEventListener("toggle", () => {
+  localStorage.setItem(CLE_SECTION, sectionFaits.open ? "oui" : "non");
+});
+
+// --- 3. Afficher les listes ----------------------------------
+// On vide les deux listes, puis on range chaque élément visible
+// dans "à faire" ou dans "terminés" selon qu'il est coché ou non.
 function afficher() {
   liste.innerHTML = "";
+  listeFaits.innerHTML = "";
 
   const visibles = elements.filter(
     (el) => filtreActif === "tous" || el.type === filtreActif
   );
+  const aFaire = visibles.filter((el) => !el.fait);
+  const faits = visibles.filter((el) => el.fait);
 
-  for (const el of visibles) {
-    const li = document.createElement("li");
-    if (el.fait) li.classList.add("fait");
+  for (const el of aFaire) liste.append(creerLigne(el));
+  for (const el of faits) listeFaits.append(creerLigne(el));
 
-    // Case à cocher fait / à faire
-    const caseACocher = document.createElement("input");
-    caseACocher.type = "checkbox";
-    caseACocher.checked = el.fait;
-    caseACocher.addEventListener("change", () => basculer(el.id));
+  // La section "Terminés" n'apparaît que s'il y a au moins un élément fini
+  compteurFaits.textContent = faits.length;
+  sectionFaits.hidden = faits.length === 0;
 
-    // Titre (textContent empêche d'injecter du code HTML par erreur)
-    const titre = document.createElement("span");
-    titre.className = "titre";
-    titre.textContent = `${EMOJIS[el.type]} ${el.titre}`;
-
-    // Bouton supprimer
-    const boutonSuppr = document.createElement("button");
-    boutonSuppr.className = "supprimer";
-    boutonSuppr.textContent = "✕";
-    boutonSuppr.setAttribute("aria-label", "Supprimer");
-    boutonSuppr.addEventListener("click", () => supprimer(el.id));
-
-    li.append(caseACocher, titre, boutonSuppr);
-    liste.append(li);
+  // Message quand il ne reste rien à faire
+  if (visibles.length === 0) {
+    messageVide.textContent = "Rien ici pour l'instant.";
+  } else {
+    messageVide.textContent = "Tout est fait ! 🎉";
   }
+  messageVide.hidden = aFaire.length > 0;
+}
 
-  messageVide.hidden = visibles.length > 0;
+// Fabrique la ligne <li> d'un élément (case à cocher + titre + bouton ✕)
+function creerLigne(el) {
+  const li = document.createElement("li");
+  if (el.fait) li.classList.add("fait");
+
+  // Case à cocher fait / à faire
+  const caseACocher = document.createElement("input");
+  caseACocher.type = "checkbox";
+  caseACocher.checked = el.fait;
+  caseACocher.addEventListener("change", () => basculer(el.id));
+
+  // Titre (textContent empêche d'injecter du code HTML par erreur)
+  const titre = document.createElement("span");
+  titre.className = "titre";
+  titre.textContent = `${EMOJIS[el.type]} ${el.titre}`;
+
+  // Bouton supprimer
+  const boutonSuppr = document.createElement("button");
+  boutonSuppr.className = "supprimer";
+  boutonSuppr.textContent = "✕";
+  boutonSuppr.setAttribute("aria-label", "Supprimer");
+  boutonSuppr.addEventListener("click", () => supprimer(el.id));
+
+  li.append(caseACocher, titre, boutonSuppr);
+  return li;
 }
 
 // --- 4. Les actions ------------------------------------------

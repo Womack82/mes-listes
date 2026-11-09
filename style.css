@@ -80,10 +80,10 @@ h1 { font-size: 2rem; margin: 8px 0 16px; }
   color: white;
 }
 
-/* ---------- Liste ---------- */
-#liste { list-style: none; padding: 0; margin: 0; }
+/* ---------- Listes (à faire et terminés) ---------- */
+.liste { list-style: none; padding: 0; margin: 0; }
 
-#liste li {
+.liste li {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -93,7 +93,7 @@ h1 { font-size: 2rem; margin: 8px 0 16px; }
   margin-bottom: 8px;
 }
 
-#liste input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; }
+.liste input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; }
 
 .titre { flex: 1; word-break: break-word; }
 
@@ -109,3 +109,27 @@ li.fait .titre { text-decoration: line-through; color: var(--gris); }
 }
 
 #message-vide { text-align: center; color: var(--gris); }
+
+/* ---------- Section "Terminés" ---------- */
+#section-faits { margin-top: 24px; }
+
+#section-faits summary {
+  list-style: none;       /* retire le triangle par défaut */
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--gris);
+  padding: 8px 0;
+  user-select: none;
+}
+#section-faits summary::-webkit-details-marker { display: none; } /* idem sur iPhone */
+
+/* Notre propre flèche : ▸ fermé, qui tourne en ▾ quand c'est ouvert */
+#section-faits summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1.2em;
+  transition: transform 0.2s;
+}
+#section-faits[open] summary::before { transform: rotate(90deg); }
+
+#liste-faits { margin-top: 8px; }
