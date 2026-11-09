@@ -100,20 +100,60 @@ h1 { font-size: 2rem; margin: 8px 0 16px; }
 /* Élément terminé : barré et grisé */
 li.fait .titre { text-decoration: line-through; color: var(--gris); }
 
-.supprimer {
+/* Boutons ✏️ et ✕ au bout de chaque ligne */
+.icone {
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: 18px;
   color: var(--gris);
-  padding: 4px 8px;
+  padding: 4px 6px;
+  flex-shrink: 0;
 }
+
+/* Le bouton ✕ devenu "Supprimer ?" : rouge pour attirer l'attention */
+.supprimer.confirmer {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: #e5484d;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+/* ---------- Ligne en mode modification ---------- */
+form.edition { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+
+form.edition input,
+form.edition select,
+form.edition button {
+  font-size: 16px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d1d6;
+  background: var(--carte);
+  color: var(--texte);
+}
+
+form.edition input { flex: 1 1 100%; }
+form.edition select { flex: 1; }
+
+form.edition button[type="submit"] {
+  background: var(--principal);
+  border-color: var(--principal);
+  color: white;
+  font-weight: 600;
+}
+
+/* ---------- Lignes de la section "Supprimés" ---------- */
+li.supprime { color: var(--gris); }
+li.supprime .date { font-size: 13px; flex-shrink: 0; }
 
 #message-vide { text-align: center; color: var(--gris); }
 
-/* ---------- Section "Terminés" ---------- */
-#section-faits { margin-top: 24px; }
+/* ---------- Sections repliables "Terminés" et "Supprimés" ---------- */
+.section { margin-top: 24px; }
 
-#section-faits summary {
+.section summary {
   list-style: none;       /* retire le triangle par défaut */
   cursor: pointer;
   font-weight: 600;
@@ -121,15 +161,15 @@ li.fait .titre { text-decoration: line-through; color: var(--gris); }
   padding: 8px 0;
   user-select: none;
 }
-#section-faits summary::-webkit-details-marker { display: none; } /* idem sur iPhone */
+.section summary::-webkit-details-marker { display: none; } /* idem sur iPhone */
 
 /* Notre propre flèche : ▸ fermé, qui tourne en ▾ quand c'est ouvert */
-#section-faits summary::before {
+.section summary::before {
   content: "▸";
   display: inline-block;
   width: 1.2em;
   transition: transform 0.2s;
 }
-#section-faits[open] summary::before { transform: rotate(90deg); }
+.section[open] summary::before { transform: rotate(90deg); }
 
-#liste-faits { margin-top: 8px; }
+.section .liste { margin-top: 8px; }

@@ -5,7 +5,6 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 
 ## À faire
 
-- [ ] Modifier le titre d'un élément existant
 - [ ] Trier la liste (à faire d'abord, ordre alphabétique…)
 - [ ] Ajouter une note à chaque élément (« recommandé par… », note sur 5)
 - [ ] Synchroniser la liste entre le PC et l'iPhone (stockage en ligne)
@@ -16,3 +15,6 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 - [x] Publication sur GitHub Pages : https://womack82.github.io/mes-listes/
 - [x] Section « Terminés » repliable sous la liste, qui se souvient de son état ouvert/fermé
 - [x] Fichier TODO.md pour suivre les améliorations
+- [x] Modifier le titre et le type d'un élément existant (bouton ✏️)
+- [x] Suppression avec confirmation (✕ puis « Supprimer ? ») ; l'élément part dans une section « Supprimés » en lecture seule (titre, type, date)
+- [x] Sections « Terminés » et « Supprimés » repliées à chaque ouverture, avec compteur, masquées si vides, et filtrées par type

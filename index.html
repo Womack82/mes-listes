@@ -52,9 +52,15 @@
     <!-- Section des éléments terminés.
          <details> est une balise HTML qui s'ouvre/se ferme toute seule
          quand on touche son titre <summary>. -->
-    <details id="section-faits" hidden>
+    <details id="section-faits" class="section" hidden>
       <summary>Terminés (<span id="compteur-faits">0</span>)</summary>
       <ul id="liste-faits" class="liste"></ul>
+    </details>
+
+    <!-- Section des éléments supprimés (lecture seule) -->
+    <details id="section-supprimes" class="section" hidden>
+      <summary>Supprimés (<span id="compteur-supprimes">0</span>)</summary>
+      <ul id="liste-supprimes" class="liste"></ul>
     </details>
   </main>
 

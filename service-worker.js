@@ -5,7 +5,7 @@
 
 // Change ce numéro (v2, v3...) à chaque modification des fichiers,
 // sinon le téléphone continuera d'utiliser l'ancienne copie.
-const NOM_CACHE = "mes-listes-v2";
+const NOM_CACHE = "mes-listes-v3";
 
 const FICHIERS = [
   "./",
