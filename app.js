@@ -117,7 +117,21 @@ function creerLigne(el) {
   // Titre (textContent empêche d'injecter du code HTML par erreur)
   const titre = document.createElement("span");
   titre.className = "titre";
-  titre.textContent = `${EMOJIS[el.type]} ${el.titre}`;
+  // Élément venu de TMDB : petite affiche à gauche, année sous le titre.
+  // Sinon : emoji du type devant le titre, comme avant.
+  let vignette = null;
+  if (el.idTmdb) {
+    vignette = creerVignette(el.affiche, el.type);
+    titre.textContent = el.titre;
+    if (el.annee) {
+      const annee = document.createElement("span");
+      annee.className = "details";
+      annee.textContent = el.annee;
+      titre.append(annee);
+    }
+  } else {
+    titre.textContent = `${EMOJIS[el.type]} ${el.titre}`;
+  }
 
   // Bouton modifier
   const boutonModif = document.createElement("button");
@@ -139,7 +153,9 @@ function creerLigne(el) {
     boutonSuppr.addEventListener("click", () => demanderConfirmation(el.id));
   }
 
-  li.append(caseACocher, titre, boutonModif, boutonSuppr);
+  li.append(caseACocher);
+  if (vignette) li.append(vignette);
+  li.append(titre, boutonModif, boutonSuppr);
   return li;
 }
 
@@ -274,7 +290,9 @@ function demanderConfirmation(id) {
   afficher();
 }
 
-// Deuxième appui : l'élément part dans "Supprimés"
+// Deuxième appui : l'élément part dans "Supprimés".
+// On n'y garde que titre, type et date : l'affiche, l'année et
+// l'identifiant TMDB sont perdus.
 function supprimer(id) {
   const el = elements.find((e) => e.id === id);
   supprimes.push({
