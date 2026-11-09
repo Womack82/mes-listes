@@ -5,6 +5,8 @@
   --carte: #ffffff;
   --texte: #1c1c1e;
   --gris: #8e8e93;
+  --bouton-fond: #ececf1;  /* fond des petits boutons */
+  --bouton-bord: #d1d1d6;  /* bordure des petits boutons */
 }
 
 /* Mode sombre automatique si l'iPhone est en mode sombre */
@@ -13,6 +15,8 @@
     --fond: #000000;
     --carte: #1c1c1e;
     --texte: #f2f2f7;
+    --bouton-fond: #2c2c2e;
+    --bouton-bord: #3a3a3c;
   }
 }
 
@@ -100,13 +104,20 @@ h1 { font-size: 2rem; margin: 8px 0 16px; }
 /* Élément terminé : barré et grisé */
 li.fait .titre { text-decoration: line-through; color: var(--gris); }
 
-/* Boutons ✏️ et ✕ au bout de chaque ligne */
+/* Boutons ✏️ et ✕ au bout de chaque ligne : un petit carré gris
+   pour bien montrer qu'on peut appuyer dessus */
 .icone {
-  background: none;
-  border: none;
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  background: var(--bouton-fond);
+  border: 1px solid var(--bouton-bord);
+  border-radius: 8px;
+  font-size: 16px;
   color: var(--gris);
-  padding: 4px 6px;
+  padding: 0 6px;
   flex-shrink: 0;
 }
 
@@ -158,8 +169,12 @@ li.supprime .date { font-size: 13px; flex-shrink: 0; }
   cursor: pointer;
   font-weight: 600;
   color: var(--gris);
-  padding: 8px 0;
+  padding: 10px 12px;
+  background: var(--bouton-fond);
+  border: 1px solid var(--bouton-bord);
+  border-radius: 10px;
   user-select: none;
+  transition: transform 0.1s, filter 0.15s;
 }
 .section summary::-webkit-details-marker { display: none; } /* idem sur iPhone */
 
@@ -173,3 +188,37 @@ li.supprime .date { font-size: 13px; flex-shrink: 0; }
 .section[open] summary::before { transform: rotate(90deg); }
 
 .section .liste { margin-top: 8px; }
+
+/* ---------- Retour visuel sur tous les boutons ---------- */
+/* Tout ce qui se touche : boutons, titres de section, cases à cocher */
+button,
+.section summary,
+input[type="checkbox"] {
+  cursor: pointer;                          /* main sur ordinateur */
+  -webkit-tap-highlight-color: transparent; /* retire le flash gris d'iOS */
+}
+
+button { transition: transform 0.1s, filter 0.15s, background 0.15s; }
+
+/* Survol à la souris (uniquement sur les appareils qui ont une souris) */
+@media (hover: hover) {
+  button:hover,
+  .section summary:hover { filter: brightness(0.93); }
+  .icone:hover { color: var(--texte); border-color: var(--gris); }
+}
+
+/* Appui (doigt ou clic) : le bouton s'enfonce légèrement */
+button:active,
+.section summary:active {
+  transform: scale(0.95);
+  filter: brightness(0.85);
+}
+
+/* Contour bien visible quand on navigue au clavier (touche Tab) */
+button:focus-visible,
+.section summary:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--principal);
+  outline-offset: 2px;
+}

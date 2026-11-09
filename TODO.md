@@ -18,3 +18,4 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 - [x] Modifier le titre et le type d'un élément existant (bouton ✏️)
 - [x] Suppression avec confirmation (✕ puis « Supprimer ? ») ; l'élément part dans une section « Supprimés » en lecture seule (titre, type, date)
 - [x] Sections « Terminés » et « Supprimés » repliées à chaque ouverture, avec compteur, masquées si vides, et filtrées par type
+- [x] Boutons plus visibles : fond et bordure sur ✏️ / ✕ et les titres de section, effet d'appui, survol à la souris, contour au clavier
