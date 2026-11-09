@@ -5,7 +5,7 @@
 
 // Change ce numéro (v2, v3...) à chaque modification des fichiers,
 // sinon le téléphone continuera d'utiliser l'ancienne copie.
-const NOM_CACHE = "mes-listes-v5";
+const NOM_CACHE = "mes-listes-v6";
 
 const FICHIERS = [
   "./",
@@ -39,6 +39,9 @@ self.addEventListener("activate", (evenement) => {
 // À chaque demande de fichier : on sert la copie en cache si elle existe,
 // sinon on va la chercher sur internet.
 self.addEventListener("fetch", (evenement) => {
+  // Les demandes vers d'autres sites (TMDB : recherche, affiches) ne passent
+  // pas par le cache : le navigateur s'en occupe normalement.
+  if (new URL(evenement.request.url).origin !== self.location.origin) return;
   evenement.respondWith(
     caches.match(evenement.request).then((reponse) => reponse || fetch(evenement.request))
   );

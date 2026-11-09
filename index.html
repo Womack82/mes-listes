@@ -78,8 +78,29 @@
         <!-- Sélecteur de fichier caché : le bouton "Importer" l'ouvre -->
         <input type="file" id="champ-fichier" accept=".json,application/json" hidden>
         <!-- Message de réussite ou d'erreur -->
-        <p id="message-sauvegarde" role="status" hidden></p>
+        <p id="message-sauvegarde" class="message" role="status" hidden></p>
       </div>
+    </details>
+
+    <!-- Section réglages : la clé TMDB pour chercher films et séries -->
+    <details id="section-reglages" class="section">
+      <summary>Réglages</summary>
+      <form id="formulaire-cle" class="sauvegarde">
+        <p class="aide">
+          Clé API TMDB, pour chercher films et séries. Elle est gardée uniquement
+          dans la mémoire de cet appareil : jamais envoyée sur GitHub, jamais
+          mise dans les exports. À coller une fois par appareil (PC, Safari,
+          app de l'écran d'accueil).
+        </p>
+        <p id="etat-cle" class="aide"></p>
+        <input id="champ-cle" class="champ-reglage" type="password" autocomplete="off"
+               autocapitalize="off" spellcheck="false" placeholder="Colle ta clé TMDB ici">
+        <div class="boutons-sauvegarde">
+          <button type="submit">Enregistrer la clé</button>
+          <button type="button" id="bouton-effacer-cle">Effacer la clé</button>
+        </div>
+        <p id="message-cle" class="message" role="status" hidden></p>
+      </form>
     </details>
   </main>
 

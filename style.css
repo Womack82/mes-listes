@@ -241,12 +241,12 @@ select:focus-visible {
   font-weight: 600;
 }
 
-#message-sauvegarde { font-size: 14px; padding: 10px 12px; border-radius: 10px; }
-#message-sauvegarde.succes { background: #e3f5e8; color: #1e6b34; }
-#message-sauvegarde.erreur { background: #fde8e8; color: #a8282c; }
+.message { font-size: 14px; padding: 10px 12px; border-radius: 10px; }
+.message.succes { background: #e3f5e8; color: #1e6b34; }
+.message.erreur { background: #fde8e8; color: #a8282c; }
 @media (prefers-color-scheme: dark) {
-  #message-sauvegarde.succes { background: #12301c; color: #7ee29c; }
-  #message-sauvegarde.erreur { background: #3a1416; color: #ff9a9e; }
+  .message.succes { background: #12301c; color: #7ee29c; }
+  .message.erreur { background: #3a1416; color: #ff9a9e; }
 }
 
 /* ---------- Fenêtre de confirmation de l'import ---------- */
@@ -269,3 +269,15 @@ select:focus-visible {
   color: white;
 }
 .boutons-fenetre .danger { background: #e5484d; border-color: #e5484d; color: white; }
+
+/* ---------- Section "Réglages" (clé TMDB) ---------- */
+.champ-reglage {
+  width: 100%;
+  font-size: 16px; /* 16px minimum : sinon l'iPhone zoome dans le champ */
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--bouton-bord);
+  background: var(--carte);
+  color: var(--texte);
+}

@@ -20,3 +20,4 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 - [x] Sections « Terminés » et « Supprimés » repliées à chaque ouverture, avec compteur, masquées si vides, et filtrées par type
 - [x] Boutons plus visibles : fond et bordure sur ✏️ / ✕ et les titres de section, effet d'appui, survol à la souris, contour au clavier
 - [x] Sauvegarde : boutons « Exporter » (fichier JSON avec numéro de version du format ; menu de partage sur iPhone) et « Importer » (vérification complète du fichier, confirmation avec le nombre d'éléments perdus, proposition de sauvegarder la liste actuelle avant de la remplacer)
+- [x] TMDB étape 1 : section « Réglages » pour coller la clé TMDB (vérifiée auprès de TMDB, gardée seulement sur l'appareil, jamais dans GitHub ni dans les exports)

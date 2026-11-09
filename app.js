@@ -307,11 +307,12 @@ const boutonAnnulerImport = document.getElementById("bouton-annuler-import");
 // Les données du fichier choisi, en attente de confirmation
 let importEnAttente = null;
 
-// Affiche un message sous les boutons (succes = vert, sinon rouge)
-function afficherMessage(texte, succes) {
-  messageSauvegarde.textContent = texte;
-  messageSauvegarde.className = succes ? "succes" : "erreur";
-  messageSauvegarde.hidden = false;
+// Affiche un message dans une zone (succes = vert, sinon rouge).
+// Par défaut, la zone de la section Sauvegarde.
+function afficherMessage(texte, succes, zone = messageSauvegarde) {
+  zone.textContent = texte;
+  zone.className = succes ? "message succes" : "message erreur";
+  zone.hidden = false;
 }
 
 // "1 élément" / "3 éléments"
@@ -491,7 +492,93 @@ fenetreImport.addEventListener("close", () => {
   importEnAttente = null;
 });
 
-// --- 7. Démarrage --------------------------------------------
+// --- 7. TMDB : la clé et les appels ---------------------------
+// La clé est rangée dans la mémoire de l'appareil (localStorage),
+// jamais dans un fichier du projet ni dans les exports.
+const CLE_TMDB = "mes-listes-cle-tmdb";
+
+const formulaireCle = document.getElementById("formulaire-cle");
+const champCle = document.getElementById("champ-cle");
+const etatCle = document.getElementById("etat-cle");
+const messageCle = document.getElementById("message-cle");
+const boutonEffacerCle = document.getElementById("bouton-effacer-cle");
+
+function lireCleTmdb() {
+  try {
+    return localStorage.getItem(CLE_TMDB) || "";
+  } catch {
+    return "";
+  }
+}
+
+// Interroge TMDB. TMDB donne deux sortes de clés, on accepte les deux :
+// - la "clé d'API" courte (32 caractères) → ajoutée à l'adresse
+// - le "jeton d'accès en lecture" très long (commence par "eyJ") → envoyé à part
+async function appelerTmdb(chemin, parametres = {}, cle = lireCleTmdb()) {
+  const adresse = new URL("https://api.themoviedb.org/3" + chemin);
+  for (const [nom, valeur] of Object.entries(parametres)) {
+    adresse.searchParams.set(nom, valeur);
+  }
+  const options = {};
+  if (cle.startsWith("eyJ")) {
+    options.headers = { Authorization: `Bearer ${cle}` };
+  } else {
+    adresse.searchParams.set("api_key", cle);
+  }
+  const reponse = await fetch(adresse, options);
+  if (!reponse.ok) {
+    const erreur = new Error(`TMDB a répondu ${reponse.status}`);
+    erreur.statut = reponse.status;
+    throw erreur;
+  }
+  return reponse.json();
+}
+
+function afficherEtatCle() {
+  const presente = lireCleTmdb() !== "";
+  etatCle.textContent = presente
+    ? "✅ Une clé est enregistrée sur cet appareil."
+    : "Aucune clé enregistrée sur cet appareil : la recherche est désactivée.";
+  boutonEffacerCle.hidden = !presente;
+}
+
+// Enregistrer : on teste d'abord la clé auprès de TMDB
+formulaireCle.addEventListener("submit", async (evenement) => {
+  evenement.preventDefault();
+  const cle = champCle.value.trim();
+  if (cle === "") {
+    afficherMessage("Colle d'abord ta clé dans le champ.", false, messageCle);
+    return;
+  }
+  try {
+    await appelerTmdb("/authentication", {}, cle);
+  } catch (erreur) {
+    if (erreur.statut === 401) {
+      afficherMessage("TMDB refuse cette clé. Vérifie que tu l'as copiée en entier. Rien n'a été enregistré.", false, messageCle);
+      return;
+    }
+    // Pas de connexion : on enregistre quand même, on testera plus tard
+    localStorage.setItem(CLE_TMDB, cle);
+    champCle.value = "";
+    afficherEtatCle();
+    afficherMessage("Clé enregistrée, mais impossible de la vérifier (pas de connexion ?).", false, messageCle);
+    return;
+  }
+  localStorage.setItem(CLE_TMDB, cle);
+  champCle.value = "";
+  afficherEtatCle();
+  afficherMessage("Clé vérifiée et enregistrée. La recherche est activée.", true, messageCle);
+});
+
+boutonEffacerCle.addEventListener("click", () => {
+  localStorage.removeItem(CLE_TMDB);
+  afficherEtatCle();
+  afficherMessage("Clé effacée de cet appareil.", true, messageCle);
+});
+
+afficherEtatCle();
+
+// --- 8. Démarrage --------------------------------------------
 // Les sections "Terminés" et "Supprimés" sont fermées à chaque ouverture
 // de l'app (c'est le comportement par défaut de <details>).
 localStorage.removeItem("mes-listes-section-ouverte"); // ancien réglage, devenu inutile
