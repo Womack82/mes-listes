@@ -1,0 +1,111 @@
+/* ---------- Couleurs et réglages généraux ---------- */
+:root {
+  --principal: #4f46e5;
+  --fond: #f5f5f7;
+  --carte: #ffffff;
+  --texte: #1c1c1e;
+  --gris: #8e8e93;
+}
+
+/* Mode sombre automatique si l'iPhone est en mode sombre */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fond: #000000;
+    --carte: #1c1c1e;
+    --texte: #f2f2f7;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--fond);
+  color: var(--texte);
+  /* Évite que le contenu passe sous l'encoche de l'iPhone */
+  padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+}
+
+main { max-width: 600px; margin: 0 auto; padding-block: 16px; }
+
+h1 { font-size: 2rem; margin: 8px 0 16px; }
+
+/* ---------- Formulaire d'ajout ---------- */
+#formulaire-ajout { display: flex; flex-wrap: wrap; gap: 8px; }
+
+#formulaire-ajout input,
+#formulaire-ajout select,
+#formulaire-ajout button {
+  font-size: 16px; /* 16px minimum : sinon l'iPhone zoome dans le champ */
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d1d6;
+  background: var(--carte);
+  color: var(--texte);
+}
+
+#champ-titre { flex: 1 1 100%; }
+#champ-type { flex: 1; }
+
+#formulaire-ajout button {
+  background: var(--principal);
+  color: white;
+  border: none;
+  font-weight: 600;
+}
+
+/* ---------- Filtres ---------- */
+#filtres {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto; /* défilement horizontal si l'écran est étroit */
+  margin: 16px 0;
+  padding-bottom: 4px;
+}
+
+#filtres button {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid #d1d1d6;
+  background: var(--carte);
+  color: var(--texte);
+  font-size: 14px;
+}
+
+#filtres button.actif {
+  background: var(--principal);
+  border-color: var(--principal);
+  color: white;
+}
+
+/* ---------- Liste ---------- */
+#liste { list-style: none; padding: 0; margin: 0; }
+
+#liste li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--carte);
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+#liste input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; }
+
+.titre { flex: 1; word-break: break-word; }
+
+/* Élément terminé : barré et grisé */
+li.fait .titre { text-decoration: line-through; color: var(--gris); }
+
+.supprimer {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--gris);
+  padding: 4px 8px;
+}
+
+#message-vide { text-align: center; color: var(--gris); }

@@ -1,0 +1,4 @@
+# Fichiers système à ne jamais enregistrer dans Git
+.DS_Store
+Thumbs.db
+desktop.ini

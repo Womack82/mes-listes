@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <!-- Adapte l'affichage à la largeur de l'écran du téléphone -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mes listes</title>
+
+  <!-- Réglages pour l'iPhone quand l'app est ajoutée à l'écran d'accueil -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mes listes">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+
+  <!-- Le "manifeste" décrit l'app (nom, icônes, couleurs) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Mes listes</h1>
+
+    <!-- Formulaire pour ajouter un élément -->
+    <form id="formulaire-ajout">
+      <input id="champ-titre" type="text" placeholder="Titre (ex : Inception)" required>
+      <select id="champ-type">
+        <option value="film">🎬 Film</option>
+        <option value="serie">📺 Série</option>
+        <option value="jeu">🎮 Jeu</option>
+        <option value="recette">🍳 Recette</option>
+        <option value="autre">📌 Autre</option>
+      </select>
+      <button type="submit">Ajouter</button>
+    </form>
+
+    <!-- Boutons de filtre : data-type indique quel type afficher -->
+    <nav id="filtres">
+      <button data-type="tous" class="actif">Tous</button>
+      <button data-type="film">🎬 Films</button>
+      <button data-type="serie">📺 Séries</button>
+      <button data-type="jeu">🎮 Jeux</button>
+      <button data-type="recette">🍳 Recettes</button>
+      <button data-type="autre">📌 Autres</button>
+    </nav>
+
+    <!-- La liste est remplie par app.js -->
+    <ul id="liste"></ul>
+    <p id="message-vide" hidden>Rien ici pour l'instant.</p>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
