@@ -286,7 +286,212 @@ for (const bouton of boutonsFiltre) {
   });
 }
 
-// --- 6. Démarrage --------------------------------------------
+// --- 6. Sauvegarde : exporter et importer --------------------
+// Numéro de version du format du fichier. Si un jour on change la forme
+// du fichier, on passera à 2 et on saura lire les anciens fichiers.
+const FORMAT_NOM = "mes-listes";
+const FORMAT_VERSION = 1;
+
+const boutonExporter = document.getElementById("bouton-exporter");
+const boutonImporter = document.getElementById("bouton-importer");
+const champFichier = document.getElementById("champ-fichier");
+const messageSauvegarde = document.getElementById("message-sauvegarde");
+const fenetreImport = document.getElementById("fenetre-import");
+const texteImport = document.getElementById("texte-import");
+const conseilSauvegarde = document.getElementById("conseil-sauvegarde");
+const infoSauvegardeFaite = document.getElementById("info-sauvegarde-faite");
+const boutonSauverAvant = document.getElementById("bouton-sauver-avant");
+const boutonRemplacer = document.getElementById("bouton-remplacer");
+const boutonAnnulerImport = document.getElementById("bouton-annuler-import");
+
+// Les données du fichier choisi, en attente de confirmation
+let importEnAttente = null;
+
+// Affiche un message sous les boutons (succes = vert, sinon rouge)
+function afficherMessage(texte, succes) {
+  messageSauvegarde.textContent = texte;
+  messageSauvegarde.className = succes ? "succes" : "erreur";
+  messageSauvegarde.hidden = false;
+}
+
+// "1 élément" / "3 éléments"
+function pluriel(nombre, mot) {
+  return `${nombre} ${mot}${nombre > 1 ? "s" : ""}`;
+}
+
+// Résumé lisible d'une liste : "12 à faire, 5 terminés, 3 supprimés"
+function resumer(lesElements, lesSupprimes) {
+  const faits = lesElements.filter((e) => e.fait).length;
+  return `${lesElements.length - faits} à faire, ${pluriel(faits, "terminé")}, ${pluriel(lesSupprimes.length, "supprimé")}`;
+}
+
+// Proposer le fichier à l'utilisateur.
+// - Sur iPhone / téléphone : le menu de partage ("Enregistrer dans Fichiers", AirDrop…)
+// - Sur ordinateur : un téléchargement classique
+async function exporter() {
+  const donnees = {
+    format: FORMAT_NOM,
+    version: FORMAT_VERSION,
+    dateExport: new Date().toISOString(),
+    elements: elements,
+    supprimes: supprimes,
+  };
+  const texte = JSON.stringify(donnees, null, 2); // indenté : lisible à l'œil
+  const date = new Date().toLocaleDateString("sv-SE"); // donne "2026-11-09"
+  const nomFichier = `mes-listes-${date}.json`;
+  const fichier = new File([texte], nomFichier, { type: "application/json" });
+
+  // Écran tactile + partage de fichiers possible → menu de partage
+  const ecranTactile = window.matchMedia("(pointer: coarse)").matches;
+  if (ecranTactile && navigator.canShare && navigator.canShare({ files: [fichier] })) {
+    try {
+      await navigator.share({ files: [fichier], title: nomFichier });
+      return true;
+    } catch (erreur) {
+      // L'utilisateur a fermé le menu sans rien choisir : ce n'est pas une erreur
+      if (erreur.name === "AbortError") return false;
+      // Autre problème : on essaie le téléchargement classique
+    }
+  }
+
+  // Téléchargement classique : on crée un lien invisible et on "clique" dessus
+  const adresse = URL.createObjectURL(fichier);
+  const lien = document.createElement("a");
+  lien.href = adresse;
+  lien.download = nomFichier;
+  document.body.append(lien);
+  lien.click();
+  lien.remove();
+  setTimeout(() => URL.revokeObjectURL(adresse), 1000); // libère la mémoire
+  return true;
+}
+
+// Vérifie le contenu d'un fichier. Renvoie { elements, supprimes } si tout
+// est correct, sinon lance une erreur avec un message clair.
+// On recopie seulement les champs connus, pour ne rien garder d'inattendu.
+function verifierFichier(donnees) {
+  if (typeof donnees !== "object" || donnees === null || donnees.format !== FORMAT_NOM) {
+    throw new Error("Ce fichier n'est pas une sauvegarde de Mes listes.");
+  }
+  if (!Number.isInteger(donnees.version) || donnees.version < 1) {
+    throw new Error("Le numéro de version du fichier est invalide.");
+  }
+  if (donnees.version > FORMAT_VERSION) {
+    throw new Error("Ce fichier vient d'une version plus récente de l'app. Mets l'app à jour puis réessaie.");
+  }
+  if (!Array.isArray(donnees.elements) || !Array.isArray(donnees.supprimes)) {
+    throw new Error("Le fichier est incomplet : il manque la liste des éléments.");
+  }
+
+  const typeValide = (t) => Object.hasOwn(EMOJIS, t);
+  const titreValide = (t) => typeof t === "string" && t.trim() !== "";
+  const idsVus = new Set();
+
+  const nouveauxElements = donnees.elements.map((el, i) => {
+    const numero = `L'élément n°${i + 1}`;
+    if (typeof el !== "object" || el === null) throw new Error(`${numero} est illisible.`);
+    if (typeof el.id !== "string" || el.id === "") throw new Error(`${numero} n'a pas d'identifiant.`);
+    if (idsVus.has(el.id)) throw new Error(`${numero} a le même identifiant qu'un autre élément.`);
+    idsVus.add(el.id);
+    if (!titreValide(el.titre)) throw new Error(`${numero} n'a pas de titre.`);
+    if (!typeValide(el.type)) throw new Error(`${numero} a un type inconnu (« ${el.type} »).`);
+    if (typeof el.fait !== "boolean") throw new Error(`${numero} n'indique pas s'il est terminé.`);
+    return { id: el.id, titre: el.titre.trim(), type: el.type, fait: el.fait };
+  });
+
+  const nouveauxSupprimes = donnees.supprimes.map((el, i) => {
+    const numero = `L'élément supprimé n°${i + 1}`;
+    if (typeof el !== "object" || el === null) throw new Error(`${numero} est illisible.`);
+    if (!titreValide(el.titre)) throw new Error(`${numero} n'a pas de titre.`);
+    if (!typeValide(el.type)) throw new Error(`${numero} a un type inconnu (« ${el.type} »).`);
+    if (typeof el.dateSuppression !== "string" || isNaN(Date.parse(el.dateSuppression))) {
+      throw new Error(`${numero} a une date de suppression invalide.`);
+    }
+    return { titre: el.titre.trim(), type: el.type, dateSuppression: el.dateSuppression };
+  });
+
+  return { elements: nouveauxElements, supprimes: nouveauxSupprimes };
+}
+
+// Le fichier a été choisi : on le lit, on le vérifie, puis on demande confirmation
+async function lireFichierChoisi() {
+  const fichier = champFichier.files[0];
+  champFichier.value = ""; // permet de rechoisir le même fichier plus tard
+  if (!fichier) return;
+  messageSauvegarde.hidden = true;
+
+  let donnees;
+  try {
+    donnees = JSON.parse(await fichier.text());
+  } catch {
+    afficherMessage(`« ${fichier.name} » n'est pas un fichier de sauvegarde lisible. Rien n'a été modifié.`, false);
+    return;
+  }
+
+  try {
+    importEnAttente = verifierFichier(donnees);
+  } catch (erreur) {
+    afficherMessage(`Fichier refusé : ${erreur.message} Rien n'a été modifié.`, false);
+    return;
+  }
+
+  // Préparer la fenêtre de confirmation
+  const nbActuels = elements.length + supprimes.length;
+  const nbImportes = importEnAttente.elements.length + importEnAttente.supprimes.length;
+  const listeVide = nbActuels === 0;
+  texteImport.textContent = listeVide
+    ? `Ta liste actuelle est vide. Elle sera remplacée par celle du fichier (${resumer(importEnAttente.elements, importEnAttente.supprimes)}).`
+    : `Tu vas perdre ${pluriel(nbActuels, "élément")} de ta liste actuelle (${resumer(elements, supprimes)}). ` +
+      `Ils seront remplacés par les ${pluriel(nbImportes, "élément")} du fichier (${resumer(importEnAttente.elements, importEnAttente.supprimes)}).`;
+  // Pas de sauvegarde à proposer si la liste actuelle est vide
+  conseilSauvegarde.hidden = listeVide;
+  boutonSauverAvant.hidden = listeVide;
+  infoSauvegardeFaite.hidden = true;
+  fenetreImport.showModal();
+}
+
+// Remplace toute la liste par le fichier importé
+function remplacerListe() {
+  if (!importEnAttente) return;
+  const anciensElements = elements;
+  const anciensSupprimes = supprimes;
+  elements = importEnAttente.elements;
+  supprimes = importEnAttente.supprimes;
+  try {
+    sauvegarder();
+  } catch (erreur) {
+    // Mémoire du téléphone pleine, etc. : on remet tout comme avant
+    elements = anciensElements;
+    supprimes = anciensSupprimes;
+    sauvegarder();
+    fenetreImport.close();
+    afficherMessage("Impossible d'enregistrer la nouvelle liste (mémoire pleine ?). Rien n'a été modifié.", false);
+    return;
+  }
+  idEnEdition = null;
+  idAConfirmer = null;
+  fenetreImport.close();
+  afficher();
+  afficherMessage(`Import réussi : ${resumer(elements, supprimes)}.`, true);
+}
+
+boutonExporter.addEventListener("click", async () => {
+  messageSauvegarde.hidden = true;
+  await exporter();
+});
+boutonImporter.addEventListener("click", () => champFichier.click());
+champFichier.addEventListener("change", lireFichierChoisi);
+boutonSauverAvant.addEventListener("click", async () => {
+  if (await exporter()) infoSauvegardeFaite.hidden = false;
+});
+boutonRemplacer.addEventListener("click", remplacerListe);
+boutonAnnulerImport.addEventListener("click", () => fenetreImport.close());
+// Quand la fenêtre se ferme (Annuler, touche Échap…), on oublie le fichier
+fenetreImport.addEventListener("close", () => {
+  importEnAttente = null;
+});
+
+// --- 7. Démarrage --------------------------------------------
 // Les sections "Terminés" et "Supprimés" sont fermées à chaque ouverture
 // de l'app (c'est le comportement par défaut de <details>).
 localStorage.removeItem("mes-listes-section-ouverte"); // ancien réglage, devenu inutile

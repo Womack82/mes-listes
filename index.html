@@ -62,7 +62,45 @@
       <summary>Supprimés (<span id="compteur-supprimes">0</span>)</summary>
       <ul id="liste-supprimes" class="liste"></ul>
     </details>
+
+    <!-- Section sauvegarde : exporter / importer toute la liste -->
+    <details id="section-sauvegarde" class="section">
+      <summary>Sauvegarde</summary>
+      <div class="sauvegarde">
+        <p class="aide">
+          Exporter crée un fichier avec tous tes éléments (à faire, terminés, supprimés).
+          Importer remplace toute la liste par celle d'un fichier exporté.
+        </p>
+        <div class="boutons-sauvegarde">
+          <button type="button" id="bouton-exporter">📤 Exporter</button>
+          <button type="button" id="bouton-importer">📥 Importer</button>
+        </div>
+        <!-- Sélecteur de fichier caché : le bouton "Importer" l'ouvre -->
+        <input type="file" id="champ-fichier" accept=".json,application/json" hidden>
+        <!-- Message de réussite ou d'erreur -->
+        <p id="message-sauvegarde" role="status" hidden></p>
+      </div>
+    </details>
   </main>
+
+  <!-- Fenêtre de confirmation avant de remplacer la liste.
+       <dialog> est une balise HTML pour les fenêtres par-dessus la page. -->
+  <dialog id="fenetre-import">
+    <h2>Remplacer la liste ?</h2>
+    <p id="texte-import"></p>
+    <p id="conseil-sauvegarde">
+      Conseil : sauvegarde d'abord ta liste actuelle, vérifie qu'elle est bien
+      enregistrée, puis appuie sur « Remplacer ».
+    </p>
+    <p id="info-sauvegarde-faite" hidden>
+      ✅ Sauvegarde proposée. Si elle est bien enregistrée, tu peux remplacer.
+    </p>
+    <div class="boutons-fenetre">
+      <button type="button" id="bouton-sauver-avant">📤 Sauvegarder ma liste actuelle</button>
+      <button type="button" id="bouton-remplacer" class="danger">Remplacer</button>
+      <button type="button" id="bouton-annuler-import" class="secondaire">Annuler</button>
+    </div>
+  </dialog>
 
   <script src="app.js"></script>
 </body>

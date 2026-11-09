@@ -222,3 +222,50 @@ select:focus-visible {
   outline: 2px solid var(--principal);
   outline-offset: 2px;
 }
+
+/* ---------- Section "Sauvegarde" (exporter / importer) ---------- */
+.sauvegarde { padding: 8px 4px 0; }
+.sauvegarde .aide { font-size: 14px; color: var(--gris); margin: 4px 0 12px; }
+
+.boutons-sauvegarde { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.boutons-sauvegarde button,
+.boutons-fenetre button {
+  flex: 1 1 140px;
+  font-size: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--bouton-bord);
+  background: var(--bouton-fond);
+  color: var(--texte);
+  font-weight: 600;
+}
+
+#message-sauvegarde { font-size: 14px; padding: 10px 12px; border-radius: 10px; }
+#message-sauvegarde.succes { background: #e3f5e8; color: #1e6b34; }
+#message-sauvegarde.erreur { background: #fde8e8; color: #a8282c; }
+@media (prefers-color-scheme: dark) {
+  #message-sauvegarde.succes { background: #12301c; color: #7ee29c; }
+  #message-sauvegarde.erreur { background: #3a1416; color: #ff9a9e; }
+}
+
+/* ---------- Fenêtre de confirmation de l'import ---------- */
+#fenetre-import {
+  width: min(420px, calc(100% - 32px));
+  border: none;
+  border-radius: 16px;
+  padding: 20px;
+  background: var(--carte);
+  color: var(--texte);
+}
+#fenetre-import::backdrop { background: rgba(0, 0, 0, 0.5); }
+#fenetre-import h2 { margin: 0 0 12px; font-size: 1.3rem; }
+#conseil-sauvegarde, #info-sauvegarde-faite { font-size: 14px; color: var(--gris); }
+
+.boutons-fenetre { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.boutons-fenetre #bouton-sauver-avant {
+  background: var(--principal);
+  border-color: var(--principal);
+  color: white;
+}
+.boutons-fenetre .danger { background: #e5484d; border-color: #e5484d; color: white; }
