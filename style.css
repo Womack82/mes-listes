@@ -589,14 +589,26 @@ main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
 @keyframes pivoter { from { transform: rotate(0deg); } }
 
 /* ---------- Calque de saisie (monte du bas) ---------- */
-/* --clavier : hauteur du clavier de l'iPhone ; --visible : hauteur de la
-   partie d'écran visible. Les deux sont mesurées par app.js. */
+/* --clavier : hauteur cachée par le clavier de l'iPhone ; --visible : hauteur
+   de la partie d'écran visible (visualViewport). Les deux sont mesurées par
+   app.js : le calque est calé au bas de la partie visible et n'est jamais
+   plus haut qu'elle (moins la barre d'état en haut). */
 .feuille {
+  --hauteur-max: calc(var(--visible, 100vh) - env(safe-area-inset-top) - 8px);
   margin: auto auto var(--clavier, 0px);
-  max-height: calc(var(--visible, 100vh) - 12px);
+  max-height: var(--hauteur-max);
   border-radius: 28px 28px 0 0;
   overflow: hidden;
 }
+/* Film, Série, Jeu : toute la hauteur visible, la liste remplit l'espace */
+.feuille.avec-recherche { height: var(--hauteur-max); }
+/* Clavier ouvert : pas de marge pour la barre du bas de l'iPhone (le clavier
+   la cache déjà), et pas de mention TMDB / RAWG (place gardée pour la liste) */
+.feuille.clavier-ouvert .feuille-contenu { padding-bottom: 8px; }
+.feuille.clavier-ouvert .mention-calque { display: none; }
+/* Page derrière le menu et le calque : ne défile pas */
+html.verrou,
+html.verrou body { overflow: hidden; }
 .feuille[open] {
   display: flex;
   flex-direction: column;
@@ -668,6 +680,7 @@ main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
   min-height: 0;
   overflow-y: auto;
   padding: 2px 2px 0;
+  overscroll-behavior: contain; /* arrivé au bout, la page derrière ne bouge pas */
 }
 .feuille .resultats { margin-top: 10px; }
 .feuille .resultats li { margin-bottom: 6px; }

@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.4";
+const VERSION = "v1.5";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -487,13 +487,37 @@ function majTelQuel() {
 
 // Quand le clavier de l'iPhone s'ouvre, la page ne rétrécit pas : il
 // recouvre le bas de l'écran. On mesure la partie vraiment visible
-// (visualViewport) pour remonter le calque au-dessus du clavier.
+// (visualViewport) pour caler le calque juste au-dessus du clavier et
+// limiter sa hauteur à cette partie visible (voir .feuille dans style.css).
 function ajusterAuClavier() {
   const vue = window.visualViewport;
   if (!vue) return; // vieux navigateur : on laisse faire
   const clavier = Math.max(0, window.innerHeight - vue.height - vue.offsetTop);
   feuilleAjout.style.setProperty("--clavier", `${clavier}px`);
   feuilleAjout.style.setProperty("--visible", `${vue.height}px`);
+  // Un site ne peut pas demander si le clavier est ouvert : on le devine
+  // quand plus de 100 px du bas de l'écran sont cachés
+  feuilleAjout.classList.toggle("clavier-ouvert", clavier > 100);
+}
+
+// Empêche la page derrière le menu et le calque de défiler :
+// classe « verrou » sur <html> tant que l'un des deux est ouvert
+function verrouillerPage() {
+  document.documentElement.classList.add("verrou");
+}
+function deverrouillerPage() {
+  if (!menuCategories.open && !feuilleAjout.open) {
+    document.documentElement.classList.remove("verrou");
+  }
+}
+// Sur iPhone, glisser le doigt sur une partie fixe (voile, en-tête, champ)
+// fait quand même bouger l'écran : on l'interdit partout, sauf dans la
+// liste de résultats (qui doit défiler) et le champ (pour placer le curseur)
+function bloquerGlissement(panneau) {
+  panneau.addEventListener("touchmove", (evenement) => {
+    const cible = evenement.target;
+    if (!zoneResultats.contains(cible) && cible !== champTitre) evenement.preventDefault();
+  }, { passive: false });
 }
 
 // Ouvre le calque de saisie pour une catégorie
@@ -507,9 +531,15 @@ function ouvrirAjout(type) {
   // Film, Série, Jeu : liste de résultats ; Recette, Autre : bouton « Ajouter »
   zoneResultats.hidden = !avecRecherche;
   ajoutDirect.hidden = avecRecherche;
+  // Avec recherche, le calque prend toute la hauteur visible (la liste
+  // remplit la place) ; sans, il est juste assez haut pour le champ
+  feuilleAjout.classList.toggle("avec-recherche", avecRecherche);
+  // Touche du clavier : « Rechercher » ou « OK » (lue par l'iPhone au focus)
+  champTitre.enterKeyHint = avecRecherche ? "search" : "done";
   mentionSource.textContent = MENTIONS[type] || "";
   masquerRecherche();
   ajusterAuClavier();
+  verrouillerPage();
   feuilleAjout.showModal();
   // Focus dans le champ tout de suite (pendant l'appui) : c'est la condition
   // pour que l'iPhone accepte d'ouvrir le clavier
@@ -527,9 +557,12 @@ function fermerAjout() {
 // refuse d'ouvrir le clavier).
 const menuCategories = document.getElementById("menu-categories");
 function ouvrirMenu() {
+  verrouillerPage();
   menuCategories.showModal();
 }
 const fermerMenu = () => menuCategories.close();
+menuCategories.addEventListener("close", deverrouillerPage);
+bloquerGlissement(menuCategories);
 for (const choix of menuCategories.querySelectorAll(".choix-menu")) {
   choix.querySelector(".rond-menu").append(creerIcone(ICONES_TYPES[choix.dataset.type]));
   choix.addEventListener("click", () => {
@@ -550,7 +583,11 @@ document.getElementById("ajout-retour").addEventListener("click", () => {
 });
 document.getElementById("ajout-fermer").addEventListener("click", fermerAjout);
 fermerSurVoile(feuilleAjout, fermerAjout);
-feuilleAjout.addEventListener("close", masquerRecherche); // Échap au clavier
+feuilleAjout.addEventListener("close", () => {
+  masquerRecherche(); // aussi après Échap au clavier
+  deverrouillerPage();
+});
+bloquerGlissement(feuilleAjout);
 if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", ajusterAuClavier);
   window.visualViewport.addEventListener("scroll", ajusterAuClavier);
