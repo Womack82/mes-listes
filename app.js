@@ -2,11 +2,11 @@
 // app.js : toute la logique de l'application
 // ============================================================
 
-// Numéro de version affiché à côté du titre.
+// Numéro de version affiché à côté du logo.
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
-// Nouvelle demande → numéro principal suivant (v11, v12…).
-// Correction ou modification d'une demande existante → sous-numéro (v10.1, v10.2…).
-const VERSION = "v15.1";
+// On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
+// numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
+const VERSION = "v1.1";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";

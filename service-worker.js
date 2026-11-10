@@ -5,9 +5,9 @@
 
 // Change ce numéro à chaque modification des fichiers, sinon le
 // téléphone continuera d'utiliser l'ancienne copie :
-// nouvelle demande → v11, v12… ; modification d'une demande existante → v10.1, v10.2…
-// ⚠️ Change aussi VERSION en haut de app.js (affichée à côté du titre).
-const NOM_CACHE = "mes-listes-v15.1";
+// chaque changement ajoute 1 au second numéro : v1.1 → v1.2 → v1.3…
+// ⚠️ Change aussi VERSION en haut de app.js (affichée à côté du logo).
+const NOM_CACHE = "mes-listes-v1.1";
 
 const FICHIERS = [
   "./",

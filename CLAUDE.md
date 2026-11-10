@@ -27,8 +27,10 @@
   `service-worker.js`. Sinon, le téléphone continue d'utiliser l'ancienne copie.
 - Change en même temps `VERSION` en haut de `app.js` : c'est le numéro affiché
   à côté du titre, et il doit rester identique à celui du cache.
-- Numérotation : nouvelle demande → numéro principal suivant (v12 → v13) ;
-  retouche d'une demande existante → sous-numéro (v12 → v12.1).
+- Numérotation : on reste en **v1**. Chaque changement, quel qu'il soit
+  (nouvelle demande ou retouche), ajoute 1 au second numéro :
+  v1.1 → v1.2 → v1.3… (les anciens numéros v10 à v15.1 datent d'avant
+  cette règle).
 
 ## Apparence
 
