@@ -4,8 +4,8 @@
   "description": "Films, séries, jeux et recettes à ne pas oublier",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f5f5f7",
-  "theme_color": "#4f46e5",
+  "background_color": "#e9eef5",
+  "theme_color": "#e9eef5",
   "lang": "fr",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },

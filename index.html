@@ -14,13 +14,22 @@
 
   <!-- Le "manifeste" décrit l'app (nom, icônes, couleurs) -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#e9eef5">
 
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main>
-    <h1>Mes listes <span id="version" class="version"></span></h1>
+    <!-- Logo W dessiné en SVG (trois branches mesurées sur l'image d'origine).
+         Le texte « Mes listes » reste lu par les lecteurs d'écran. -->
+    <h1 class="entete">
+      <svg class="logo" viewBox="59 79 605 297" role="img" aria-label="Mes listes">
+        <polygon points="59,79 175,79 327,290 268,376"/>
+        <polygon points="250,79 367,79 517,290 458,376"/>
+        <polygon points="555,79 664,79 534,267 480,189"/>
+      </svg>
+      <span id="version" class="version"></span>
+    </h1>
 
     <!-- Formulaire pour ajouter un élément -->
     <form id="formulaire-ajout">

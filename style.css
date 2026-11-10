@@ -1,23 +1,19 @@
 /* ---------- Couleurs et réglages généraux ---------- */
+/* Palette de l'app. Règle : jamais de texte orange sur fond clair
+   (pas assez lisible) ; sur l'orange, le texte est bleu marine. */
 :root {
-  --principal: #4f46e5;
-  --fond: #f5f5f7;
-  --carte: #ffffff;
-  --texte: #1c1c1e;
-  --gris: #8e8e93;
-  --bouton-fond: #ececf1;  /* fond des petits boutons */
-  --bouton-bord: #d1d1d6;  /* bordure des petits boutons */
-}
-
-/* Mode sombre automatique si l'iPhone est en mode sombre */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fond: #000000;
-    --carte: #1c1c1e;
-    --texte: #f2f2f7;
-    --bouton-fond: #2c2c2e;
-    --bouton-bord: #3a3a3c;
-  }
+  --fond: #e9eef5;          /* fond de l'app */
+  --carte: #ffffff;         /* cartes blanches */
+  --texte: #0a2342;         /* texte et titres (bleu marine) */
+  --gris: #4a5d78;          /* texte secondaire */
+  --accent: #ff6a00;        /* accent principal (orange), texte marine dessus */
+  --accent-survol: #ff9b54; /* survol et appui de l'accent */
+  --bleu: #2c6e9a;          /* éléments actifs et secondaires, texte blanc dessus */
+  --bouton-fond: #e9eef5;   /* fond des petits boutons dans les cartes */
+  --bouton-bord: #c9d4e2;   /* bordures discrètes */
+  --rouge: #b42318;         /* suppression (texte blanc dessus) */
+  --arrondi: 16px;          /* coins des cartes */
+  --duree: 180ms;           /* durée des animations (entre 150 et 280 ms) */
 }
 
 * { box-sizing: border-box; }
@@ -27,13 +23,24 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--fond);
   color: var(--texte);
+  line-height: 1.4;
   /* Évite que le contenu passe sous l'encoche de l'iPhone */
   padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
 }
 
 main { max-width: 600px; margin: 0 auto; padding-block: 16px; }
 
-h1 { font-size: 2rem; margin: 8px 0 16px; }
+h1, h2 { color: var(--texte); }
+
+/* ---------- En-tête : logo W centré, numéro de version dessous ---------- */
+.entete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 0 20px;
+}
+.logo { display: block; width: 120px; height: auto; fill: var(--texte); }
 
 /* ---------- Formulaire d'ajout ---------- */
 #formulaire-ajout { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -42,9 +49,10 @@ h1 { font-size: 2rem; margin: 8px 0 16px; }
 #formulaire-ajout select,
 #formulaire-ajout button {
   font-size: 16px; /* 16px minimum : sinon l'iPhone zoome dans le champ */
+  min-height: 48px;
   padding: 12px;
-  border-radius: 10px;
-  border: 1px solid #d1d1d6;
+  border-radius: 12px;
+  border: 1px solid var(--bouton-bord);
   background: var(--carte);
   color: var(--texte);
 }
@@ -52,11 +60,15 @@ h1 { font-size: 2rem; margin: 8px 0 16px; }
 #champ-titre { flex: 1 1 100%; }
 #champ-type { flex: 1; }
 
-#formulaire-ajout button {
-  background: var(--principal);
-  color: white;
-  border: none;
-  font-weight: 600;
+/* Bouton principal (orange, texte marine) */
+#formulaire-ajout button,
+form.edition button[type="submit"],
+.boutons-fenetre #bouton-sauver-avant,
+.boutons-sauvegarde button[type="submit"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--texte);
+  font-weight: 700;
 }
 
 /* ---------- Filtres ---------- */
@@ -70,21 +82,24 @@ h1 { font-size: 2rem; margin: 8px 0 16px; }
 
 #filtres button {
   flex-shrink: 0;
-  padding: 8px 14px;
-  border-radius: 20px;
-  border: 1px solid #d1d1d6;
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: 22px;
+  border: 1px solid var(--bouton-bord);
   background: var(--carte);
   color: var(--texte);
-  font-size: 14px;
+  font-size: 15px;
 }
 
+/* Filtre choisi : bleu, texte blanc */
 #filtres button.actif {
-  background: var(--principal);
-  border-color: var(--principal);
+  background: var(--bleu);
+  border-color: var(--bleu);
   color: white;
+  font-weight: 600;
 }
 
-/* ---------- Listes (à faire et terminés) ---------- */
+/* ---------- Listes (à faire et terminés) : cartes blanches ---------- */
 .liste { list-style: none; padding: 0; margin: 0; }
 
 .liste li {
@@ -93,31 +108,36 @@ h1 { font-size: 2rem; margin: 8px 0 16px; }
   gap: 12px;
   background: var(--carte);
   padding: 12px;
-  border-radius: 12px;
+  border-radius: var(--arrondi);
   margin-bottom: 8px;
+  box-shadow: 0 1px 2px rgba(10, 35, 66, 0.06);
 }
 
-.liste input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; }
+.liste input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  accent-color: var(--bleu); /* case cochée en bleu */
+}
 
 .titre { flex: 1; word-break: break-word; }
 
 /* Élément terminé : barré et grisé */
 li.fait .titre { text-decoration: line-through; color: var(--gris); }
 
-/* Boutons ✏️ et ✕ au bout de chaque ligne : un petit carré gris
-   pour bien montrer qu'on peut appuyer dessus */
+/* Boutons ✏️ et ✕ au bout de chaque ligne : 44 px pour le doigt */
 .icone {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  height: 36px;
+  min-width: 44px;
+  height: 44px;
   background: var(--bouton-fond);
   border: 1px solid var(--bouton-bord);
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 16px;
   color: var(--gris);
-  padding: 0 6px;
+  padding: 0 8px;
   flex-shrink: 0;
 }
 
@@ -126,9 +146,9 @@ li.fait .titre { text-decoration: line-through; color: var(--gris); }
   font-size: 14px;
   font-weight: 600;
   color: white;
-  background: #e5484d;
-  border-radius: 8px;
-  padding: 6px 10px;
+  background: var(--rouge);
+  border-color: var(--rouge);
+  padding: 6px 12px;
 }
 
 /* ---------- Ligne en mode modification ---------- */
@@ -138,9 +158,10 @@ form.edition input,
 form.edition select,
 form.edition button {
   font-size: 16px;
+  min-height: 44px;
   padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #d1d1d6;
+  border-radius: 12px;
+  border: 1px solid var(--bouton-bord);
   background: var(--carte);
   color: var(--texte);
 }
@@ -148,9 +169,10 @@ form.edition button {
 form.edition input { flex: 1 1 100%; }
 form.edition select { flex: 1; }
 
-form.edition button[type="submit"] {
-  background: var(--principal);
-  border-color: var(--principal);
+/* Boutons secondaires (Annuler) : bleu, texte blanc */
+button.secondaire {
+  background: var(--bleu);
+  border-color: var(--bleu);
   color: white;
   font-weight: 600;
 }
@@ -161,20 +183,22 @@ li.supprime .date { font-size: 13px; flex-shrink: 0; }
 
 #message-vide { text-align: center; color: var(--gris); }
 
-/* ---------- Sections repliables "Terminés" et "Supprimés" ---------- */
+/* ---------- Sections repliables : titres en carte blanche ---------- */
 .section { margin-top: 24px; }
 
 .section summary {
   list-style: none;       /* retire le triangle par défaut */
+  display: flex;
+  align-items: center;
+  min-height: 48px;
   cursor: pointer;
   font-weight: 600;
-  color: var(--gris);
-  padding: 10px 12px;
-  background: var(--bouton-fond);
+  color: var(--texte);
+  padding: 10px 14px;
+  background: var(--carte);
   border: 1px solid var(--bouton-bord);
-  border-radius: 10px;
+  border-radius: var(--arrondi);
   user-select: none;
-  transition: transform 0.1s, filter 0.15s;
 }
 .section summary::-webkit-details-marker { display: none; } /* idem sur iPhone */
 
@@ -183,7 +207,8 @@ li.supprime .date { font-size: 13px; flex-shrink: 0; }
   content: "▸";
   display: inline-block;
   width: 1.2em;
-  transition: transform 0.2s;
+  color: var(--bleu);
+  transition: transform var(--duree) ease;
 }
 .section[open] summary::before { transform: rotate(90deg); }
 
@@ -198,91 +223,116 @@ input[type="checkbox"] {
   -webkit-tap-highlight-color: transparent; /* retire le flash gris d'iOS */
 }
 
-button { transition: transform 0.1s, filter 0.15s, background 0.15s; }
+button,
+.section summary {
+  transition:
+    transform var(--duree) ease,
+    background-color var(--duree) ease,
+    border-color var(--duree) ease,
+    filter var(--duree) ease;
+}
 
 /* Survol à la souris (uniquement sur les appareils qui ont une souris) */
 @media (hover: hover) {
   button:hover,
-  .section summary:hover { filter: brightness(0.93); }
+  .section summary:hover { filter: brightness(0.95); }
   .icone:hover { color: var(--texte); border-color: var(--gris); }
+  /* Boutons orange : orange plus clair au survol */
+  #formulaire-ajout button:hover,
+  form.edition button[type="submit"]:hover,
+  .boutons-fenetre #bouton-sauver-avant:hover,
+  .boutons-sauvegarde button[type="submit"]:hover {
+    background: var(--accent-survol);
+    border-color: var(--accent-survol);
+    filter: none;
+  }
 }
 
 /* Appui (doigt ou clic) : le bouton s'enfonce légèrement */
 button:active,
 .section summary:active {
-  transform: scale(0.95);
-  filter: brightness(0.85);
+  transform: scale(0.96);
+  filter: brightness(0.9);
+}
+/* Boutons orange appuyés : orange plus clair */
+#formulaire-ajout button:active,
+form.edition button[type="submit"]:active,
+.boutons-fenetre #bouton-sauver-avant:active,
+.boutons-sauvegarde button[type="submit"]:active {
+  background: var(--accent-survol);
+  border-color: var(--accent-survol);
+  filter: none;
 }
 
 /* Contour bien visible quand on navigue au clavier (touche Tab) */
 button:focus-visible,
 .section summary:focus-visible,
 input:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--principal);
+select:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--bleu);
   outline-offset: 2px;
 }
 
 /* ---------- Section "Sauvegarde" (exporter / importer) ---------- */
-.sauvegarde { padding: 8px 4px 0; }
+.sauvegarde {
+  margin-top: 8px;
+  padding: 14px;
+  background: var(--carte);
+  border-radius: var(--arrondi);
+}
 .sauvegarde .aide { font-size: 14px; color: var(--gris); margin: 4px 0 12px; }
 
 .boutons-sauvegarde { display: flex; flex-wrap: wrap; gap: 8px; }
 
+/* Boutons secondaires (Exporter, Importer, Effacer la clé) : bleu, texte blanc */
 .boutons-sauvegarde button,
 .boutons-fenetre button {
   flex: 1 1 140px;
+  min-height: 48px;
   font-size: 16px;
   padding: 12px;
-  border-radius: 10px;
-  border: 1px solid var(--bouton-bord);
-  background: var(--bouton-fond);
-  color: var(--texte);
+  border-radius: 12px;
+  border: 1px solid var(--bleu);
+  background: var(--bleu);
+  color: white;
   font-weight: 600;
 }
 
-.message { font-size: 14px; padding: 10px 12px; border-radius: 10px; }
+.message { font-size: 14px; padding: 10px 12px; border-radius: 12px; }
 .message.succes { background: #e3f5e8; color: #1e6b34; }
 .message.erreur { background: #fde8e8; color: #a8282c; }
-@media (prefers-color-scheme: dark) {
-  .message.succes { background: #12301c; color: #7ee29c; }
-  .message.erreur { background: #3a1416; color: #ff9a9e; }
-}
 
 /* ---------- Fenêtre de confirmation de l'import ---------- */
 #fenetre-import {
   width: min(420px, calc(100% - 32px));
   border: none;
-  border-radius: 16px;
+  border-radius: var(--arrondi);
   padding: 20px;
   background: var(--carte);
   color: var(--texte);
 }
-#fenetre-import::backdrop { background: rgba(0, 0, 0, 0.5); }
+#fenetre-import::backdrop { background: rgba(10, 35, 66, 0.55); }
 #fenetre-import h2 { margin: 0 0 12px; font-size: 1.3rem; }
 #conseil-sauvegarde, #info-sauvegarde-faite { font-size: 14px; color: var(--gris); }
 
 .boutons-fenetre { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-.boutons-fenetre #bouton-sauver-avant {
-  background: var(--principal);
-  border-color: var(--principal);
-  color: white;
-}
-.boutons-fenetre .danger { background: #e5484d; border-color: #e5484d; color: white; }
+.boutons-fenetre .danger { background: var(--rouge); border-color: var(--rouge); color: white; }
 
-/* ---------- Section "Réglages" (clé TMDB) ---------- */
+/* ---------- Section "Réglages" (clés TMDB et RAWG) ---------- */
 .champ-reglage {
   width: 100%;
+  min-height: 48px;
   font-size: 16px; /* 16px minimum : sinon l'iPhone zoome dans le champ */
   padding: 12px;
   margin-bottom: 8px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--bouton-bord);
   background: var(--carte);
   color: var(--texte);
 }
 
-/* ---------- Résultats de la recherche TMDB ---------- */
+/* ---------- Résultats de la recherche TMDB / RAWG ---------- */
 #etat-recherche { font-size: 14px; color: var(--gris); margin: 12px 0 8px; }
 .resultats { margin-top: 8px; }
 .resultats li { padding: 0; }
@@ -293,9 +343,10 @@ select:focus-visible {
   align-items: center;
   gap: 12px;
   width: 100%;
+  min-height: 60px;
   padding: 8px 12px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--arrondi);
   background: none;
   color: var(--texte);
   font-size: 16px;
@@ -309,7 +360,7 @@ select:focus-visible {
   width: 40px;
   height: 60px;
   flex-shrink: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   object-fit: cover;
   background: var(--bouton-fond);
 }
@@ -324,9 +375,9 @@ select:focus-visible {
 .titre .details { display: block; font-size: 13px; color: var(--gris); margin-top: 2px; }
 li.fait .vignette { opacity: 0.5; } /* affiche grisée quand c'est terminé */
 
-/* Lien IMDb sous le titre, à côté de l'année */
+/* Lien IMDb sous le titre, à côté de l'année (bleu marine, jamais orange) */
 .lien-imdb {
-  color: inherit;
+  color: var(--texte);
   font-weight: 600;
   text-decoration: underline;
   padding: 4px 0; /* zone d'appui un peu plus haute au doigt */
@@ -345,5 +396,16 @@ li.fait .vignette { opacity: 0.5; } /* affiche grisée quand c'est terminé */
 /* Espace entre les deux formulaires de clé dans « Réglages » */
 #formulaire-cle-rawg { margin-top: 16px; }
 
-/* ---------- Numéro de version à côté du titre ---------- */
-.version { font-size: 0.9rem; font-weight: 400; color: var(--gris); vertical-align: middle; }
+/* ---------- Numéro de version sous le logo ---------- */
+.version { font-size: 0.8rem; font-weight: 400; color: var(--gris); }
+
+/* ---------- « Réduire les animations » activé sur l'appareil ---------- */
+/* Réglages iPhone > Accessibilité > Mouvement : on coupe toutes les animations */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+  button:active,
+  .section summary:active { transform: none; }
+}

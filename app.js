@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // Nouvelle demande → numéro principal suivant (v11, v12…).
 // Correction ou modification d'une demande existante → sous-numéro (v10.1, v10.2…).
-const VERSION = "v12";
+const VERSION = "v13";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
