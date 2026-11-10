@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // Nouvelle demande → numéro principal suivant (v11, v12…).
 // Correction ou modification d'une demande existante → sous-numéro (v10.1, v10.2…).
-const VERSION = "v10.1";
+const VERSION = "v11";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -123,10 +123,11 @@ function creerLigne(el) {
   // Titre (textContent empêche d'injecter du code HTML par erreur)
   const titre = document.createElement("span");
   titre.className = "titre";
-  // Élément venu de TMDB : petite affiche à gauche, année sous le titre.
+  // Élément venu de TMDB ou RAWG : vignette à gauche (affiche, ou emoji
+  // pour les jeux et les films sans affiche), année sous le titre.
   // Sinon : emoji du type devant le titre, comme avant.
   let vignette = null;
-  if (el.idTmdb) {
+  if (el.idTmdb || el.idRawg) {
     vignette = creerVignette(el.affiche, el.type);
     titre.textContent = el.titre;
     if (el.annee) {
@@ -229,30 +230,33 @@ function creerLigneSupprimee(el) {
 }
 
 // --- 4. Les actions ------------------------------------------
-// infosTmdb (facultatif) : { annee, affiche, idTmdb } quand le titre
-// a été choisi dans la recherche TMDB
-function ajouter(titre, type, infosTmdb = null) {
+// infos (facultatif) : quand le titre a été choisi dans une recherche
+// - TMDB (films, séries) : { annee, affiche, idTmdb }
+// - RAWG (jeux)          : { annee, idRawg } (pas de jaquette, volontairement)
+function ajouter(titre, type, infos = null) {
   const el = {
     id: Date.now().toString(), // identifiant unique basé sur l'heure
     titre: titre,
     type: type,
     fait: false,
   };
-  if (infosTmdb) {
-    if (infosTmdb.annee) el.annee = infosTmdb.annee;
-    if (infosTmdb.affiche) el.affiche = infosTmdb.affiche;
-    el.idTmdb = infosTmdb.idTmdb;
+  if (infos) {
+    if (infos.annee) el.annee = infos.annee;
+    if (infos.affiche) el.affiche = infos.affiche;
+    if (infos.idTmdb) el.idTmdb = infos.idTmdb;
+    if (infos.idRawg) el.idRawg = infos.idRawg;
   }
   elements.push(el);
   sauvegarder();
   afficher();
 }
 
-// Retire les informations TMDB d'un élément (affiche, année, identifiant)
-function retirerInfosTmdb(el) {
+// Retire les informations venues de TMDB ou RAWG (affiche, année, identifiants)
+function retirerInfosExternes(el) {
   delete el.annee;
   delete el.affiche;
   delete el.idTmdb;
+  delete el.idRawg;
 }
 
 function basculer(id) {
@@ -275,9 +279,9 @@ function annulerEdition() {
 
 function modifier(id, titre, type) {
   const el = elements.find((e) => e.id === id);
-  // Si le type change, les infos TMDB ne correspondent plus
+  // Si le type change, les infos TMDB / RAWG ne correspondent plus
   // (un identifiant TMDB de film ne désigne pas la même chose côté séries)
-  if (type !== el.type) retirerInfosTmdb(el);
+  if (type !== el.type) retirerInfosExternes(el);
   el.titre = titre;
   el.type = type;
   idEnEdition = null;
@@ -298,7 +302,7 @@ function demanderConfirmation(id) {
 
 // Deuxième appui : l'élément part dans "Supprimés".
 // On n'y garde que titre, type et date : l'affiche, l'année et
-// l'identifiant TMDB sont perdus.
+// les identifiants TMDB / RAWG sont perdus.
 function supprimer(id) {
   const el = elements.find((e) => e.id === id);
   supprimes.push({
@@ -318,7 +322,7 @@ formulaire.addEventListener("submit", (evenement) => {
   evenement.preventDefault(); // empêche la page de se recharger
   const titre = champTitre.value.trim();
   if (titre === "") return;
-  ajouter(titre, champType.value); // saisie manuelle : pas d'infos TMDB
+  ajouter(titre, champType.value); // saisie manuelle : pas d'infos TMDB / RAWG
   champTitre.value = "";
   masquerRecherche();
 });
@@ -337,8 +341,9 @@ for (const bouton of boutonsFiltre) {
 // du fichier, on passera à 2 et on saura lire les anciens fichiers.
 const FORMAT_NOM = "mes-listes";
 // Version 1 : titre, type, fait. Version 2 : + année, affiche, identifiant TMDB
-// (facultatifs). L'app sait lire les deux.
-const FORMAT_VERSION = 2;
+// (facultatifs). Version 3 : + identifiant RAWG pour les jeux (facultatif).
+// L'app sait lire les trois.
+const FORMAT_VERSION = 3;
 
 const boutonExporter = document.getElementById("bouton-exporter");
 const boutonImporter = document.getElementById("bouton-importer");
@@ -453,6 +458,12 @@ function verifierFichier(donnees) {
       if (el.type !== "film" && el.type !== "serie") throw new Error(`${numero} a un identifiant TMDB mais n'est ni un film ni une série.`);
       propre.idTmdb = el.idTmdb;
     }
+    // Infos RAWG (version 3, facultatives) : seulement pour les jeux, sans jaquette
+    if (el.idRawg !== undefined) {
+      if (!Number.isInteger(el.idRawg) || el.idRawg <= 0) throw new Error(`${numero} a un identifiant RAWG invalide.`);
+      if (el.type !== "jeu") throw new Error(`${numero} a un identifiant RAWG mais n'est pas un jeu.`);
+      propre.idRawg = el.idRawg;
+    }
     if (el.annee !== undefined) {
       if (!Number.isInteger(el.annee) || el.annee < 1800 || el.annee > 2200) throw new Error(`${numero} a une année invalide.`);
       propre.annee = el.annee;
@@ -558,24 +569,21 @@ fenetreImport.addEventListener("close", () => {
   importEnAttente = null;
 });
 
-// --- 7. TMDB : la clé et les appels ---------------------------
-// La clé est rangée dans la mémoire de l'appareil (localStorage),
+// --- 7. Les clés TMDB et RAWG et les appels -------------------
+// Les clés sont rangées dans la mémoire de l'appareil (localStorage),
 // jamais dans un fichier du projet ni dans les exports.
 const CLE_TMDB = "mes-listes-cle-tmdb";
+const CLE_RAWG = "mes-listes-cle-rawg";
 
-const formulaireCle = document.getElementById("formulaire-cle");
-const champCle = document.getElementById("champ-cle");
-const etatCle = document.getElementById("etat-cle");
-const messageCle = document.getElementById("message-cle");
-const boutonEffacerCle = document.getElementById("bouton-effacer-cle");
-
-function lireCleTmdb() {
+function lireCle(nomStockage) {
   try {
-    return localStorage.getItem(CLE_TMDB) || "";
+    return localStorage.getItem(nomStockage) || "";
   } catch {
     return "";
   }
 }
+const lireCleTmdb = () => lireCle(CLE_TMDB);
+const lireCleRawg = () => lireCle(CLE_RAWG);
 
 // Interroge TMDB. TMDB donne deux sortes de clés, on accepte les deux :
 // - la "clé d'API" courte (32 caractères) → ajoutée à l'adresse
@@ -600,51 +608,89 @@ async function appelerTmdb(chemin, parametres = {}, cle = lireCleTmdb()) {
   return reponse.json();
 }
 
-function afficherEtatCle() {
-  const presente = lireCleTmdb() !== "";
-  etatCle.textContent = presente
-    ? "✅ Une clé est enregistrée sur cet appareil."
-    : "Aucune clé enregistrée sur cet appareil : la recherche est désactivée.";
-  boutonEffacerCle.hidden = !presente;
+// Interroge RAWG (jeux vidéo). RAWG n'a qu'une sorte de clé : ajoutée à l'adresse.
+async function appelerRawg(chemin, parametres = {}, cle = lireCleRawg()) {
+  const adresse = new URL("https://api.rawg.io/api" + chemin);
+  for (const [nom, valeur] of Object.entries(parametres)) {
+    adresse.searchParams.set(nom, valeur);
+  }
+  adresse.searchParams.set("key", cle);
+  const reponse = await fetch(adresse);
+  if (!reponse.ok) {
+    const erreur = new Error(`RAWG a répondu ${reponse.status}`);
+    erreur.statut = reponse.status;
+    throw erreur;
+  }
+  return reponse.json();
 }
 
-// Enregistrer : on teste d'abord la clé auprès de TMDB
-formulaireCle.addEventListener("submit", async (evenement) => {
-  evenement.preventDefault();
-  const cle = champCle.value.trim();
-  if (cle === "") {
-    afficherMessage("Colle d'abord ta clé dans le champ.", false, messageCle);
-    return;
+// Une clé refusée : TMDB répond 401, RAWG répond 401 ou 403 selon les cas
+const cleRefusee = (erreur) => erreur.statut === 401 || erreur.statut === 403;
+
+// Branche un formulaire de clé de la section « Réglages ».
+// Le même fonctionnement sert pour TMDB et RAWG :
+// - nom : "TMDB" ou "RAWG" (pour les messages)
+// - prefixe : fin des id HTML ("cle-rawg" → formulaire-cle-rawg, champ-cle-rawg…)
+// - verifier(cle) : petit appel qui échoue si la clé est refusée
+function brancherCle(nom, nomStockage, prefixe, verifier) {
+  const formulaire = document.getElementById(`formulaire-${prefixe}`);
+  const champ = document.getElementById(`champ-${prefixe}`);
+  const etat = document.getElementById(`etat-${prefixe}`);
+  const message = document.getElementById(`message-${prefixe}`);
+  const boutonEffacer = document.getElementById(`bouton-effacer-${prefixe}`);
+
+  function afficherEtat() {
+    const presente = lireCle(nomStockage) !== "";
+    etat.textContent = presente
+      ? `✅ Une clé ${nom} est enregistrée sur cet appareil.`
+      : `Aucune clé ${nom} enregistrée sur cet appareil : la recherche est désactivée.`;
+    boutonEffacer.hidden = !presente;
   }
-  try {
-    await appelerTmdb("/authentication", {}, cle);
-  } catch (erreur) {
-    if (erreur.statut === 401) {
-      afficherMessage("TMDB refuse cette clé. Vérifie que tu l'as copiée en entier. Rien n'a été enregistré.", false, messageCle);
+
+  function enregistrer(cle) {
+    localStorage.setItem(nomStockage, cle);
+    champ.value = "";
+    afficherEtat();
+  }
+
+  // Enregistrer : on teste d'abord la clé auprès du service
+  formulaire.addEventListener("submit", async (evenement) => {
+    evenement.preventDefault();
+    const cle = champ.value.trim();
+    if (cle === "") {
+      afficherMessage("Colle d'abord ta clé dans le champ.", false, message);
       return;
     }
-    // Pas de connexion : on enregistre quand même, on testera plus tard
-    localStorage.setItem(CLE_TMDB, cle);
-    champCle.value = "";
-    afficherEtatCle();
-    afficherMessage("Clé enregistrée, mais impossible de la vérifier (pas de connexion ?).", false, messageCle);
-    return;
-  }
-  localStorage.setItem(CLE_TMDB, cle);
-  champCle.value = "";
-  afficherEtatCle();
-  afficherMessage("Clé vérifiée et enregistrée. La recherche est activée.", true, messageCle);
-});
+    try {
+      await verifier(cle);
+    } catch (erreur) {
+      if (cleRefusee(erreur)) {
+        afficherMessage(`${nom} refuse cette clé. Vérifie que tu l'as copiée en entier. Rien n'a été enregistré.`, false, message);
+        return;
+      }
+      // Pas de connexion : on enregistre quand même, on testera plus tard
+      enregistrer(cle);
+      afficherMessage("Clé enregistrée, mais impossible de la vérifier (pas de connexion ?).", false, message);
+      return;
+    }
+    enregistrer(cle);
+    afficherMessage("Clé vérifiée et enregistrée. La recherche est activée.", true, message);
+  });
 
-boutonEffacerCle.addEventListener("click", () => {
-  localStorage.removeItem(CLE_TMDB);
-  afficherEtatCle();
-  afficherMessage("Clé effacée de cet appareil.", true, messageCle);
-});
+  boutonEffacer.addEventListener("click", () => {
+    localStorage.removeItem(nomStockage);
+    afficherEtat();
+    afficherMessage("Clé effacée de cet appareil.", true, message);
+  });
 
-afficherEtatCle();
+  afficherEtat();
+}
 
-// --- 8. TMDB : la recherche de films et séries ---------------
+brancherCle("TMDB", CLE_TMDB, "cle", (cle) => appelerTmdb("/authentication", {}, cle));
+// RAWG n'a pas d'adresse pour tester une clé : on fait une mini-recherche
+brancherCle("RAWG", CLE_RAWG, "cle-rawg", (cle) => appelerRawg("/games", { page_size: 1 }, cle));
+
+// --- 8. La recherche : films et séries (TMDB), jeux (RAWG) ----
 const etatRecherche = document.getElementById("etat-recherche");
 const resultatsRecherche = document.getElementById("resultats-recherche");
 
@@ -670,7 +716,7 @@ function afficherEtatRecherche(texte) {
 
 // Transforme un résultat TMDB en { titre, type, annee, affiche, idTmdb }
 // (on ne garde que ça : pas de synopsis, de note, de saisons…)
-function convertirResultat(r) {
+function convertirResultatTmdb(r) {
   const date = r.release_date || r.first_air_date || "";
   const annee = parseInt(date.slice(0, 4), 10);
   return {
@@ -681,6 +727,56 @@ function convertirResultat(r) {
     idTmdb: r.id,
   };
 }
+
+// Transforme un résultat RAWG en { titre, type, annee, idRawg }.
+// Pas de jaquette : on ignore volontairement les images de RAWG.
+function convertirResultatRawg(r) {
+  const annee = parseInt((r.released || "").slice(0, 4), 10);
+  return {
+    titre: r.name,
+    type: "jeu",
+    annee: Number.isInteger(annee) ? annee : null,
+    idRawg: r.id,
+  };
+}
+
+// Ce qui change d'un service à l'autre pour la recherche
+const SOURCES = {
+  tmdb: {
+    nom: "TMDB",
+    lireCle: lireCleTmdb,
+    // search/multi renvoie films, séries et personnes ensemble
+    chercher: async (texte) => {
+      const donnees = await appelerTmdb("/search/multi", {
+        query: texte,
+        language: "fr-FR",
+        include_adult: "false",
+      });
+      return donnees.results
+        .filter((r) => r.media_type === "movie" || r.media_type === "tv") // sans les personnes
+        .slice(0, 8)
+        .map(convertirResultatTmdb);
+    },
+  },
+  rawg: {
+    nom: "RAWG",
+    lireCle: lireCleRawg,
+    // RAWG ne propose pas de langue : les titres sont ceux de RAWG (souvent en anglais)
+    chercher: async (texte) => {
+      const donnees = await appelerRawg("/games", { search: texte, page_size: 8 });
+      return donnees.results.slice(0, 8).map(convertirResultatRawg);
+    },
+  },
+};
+
+// Quel service interroger selon le type choisi (aucun pour recette / autre)
+function sourcePourType(type) {
+  if (type === "film" || type === "serie") return SOURCES.tmdb;
+  if (type === "jeu") return SOURCES.rawg;
+  return null;
+}
+
+const NOMS_TYPES = { film: "🎬 Film", serie: "📺 Série", jeu: "🎮 Jeu" };
 
 // Fabrique la petite image d'un élément : l'affiche, ou l'emoji du type
 // s'il n'y a pas d'affiche ou si elle ne se charge pas (hors ligne)
@@ -703,13 +799,14 @@ async function rechercher() {
   const texte = champTitre.value.trim();
   const type = champType.value;
 
-  // La recherche ne concerne que les films et séries, à partir de 2 lettres
-  if ((type !== "film" && type !== "serie") || texte.length < 2) {
+  // La recherche concerne les films, séries et jeux, à partir de 2 lettres
+  const source = sourcePourType(type);
+  if (!source || texte.length < 2) {
     masquerRecherche();
     return;
   }
-  if (lireCleTmdb() === "") {
-    afficherEtatRecherche("Pour chercher sur TMDB, colle ta clé dans « Réglages » en bas. Tu peux aussi ajouter le titre à la main.");
+  if (source.lireCle() === "") {
+    afficherEtatRecherche(`Pour chercher sur ${source.nom}, colle ta clé dans « Réglages » en bas. Tu peux aussi ajouter le titre à la main.`);
     return;
   }
   if (!navigator.onLine) {
@@ -721,32 +818,22 @@ async function rechercher() {
   etatRecherche.textContent = "Recherche…";
   etatRecherche.hidden = false;
 
-  let donnees;
+  let resultats;
   try {
-    // search/multi renvoie films, séries et personnes ensemble
-    donnees = await appelerTmdb("/search/multi", {
-      query: texte,
-      language: "fr-FR",
-      include_adult: "false",
-    });
+    resultats = await source.chercher(texte);
   } catch (erreur) {
     if (numero !== numeroRecherche) return;
     afficherEtatRecherche(
-      erreur.statut === 401
-        ? "TMDB refuse ta clé. Vérifie-la dans « Réglages ». Tu peux ajouter le titre à la main."
+      cleRefusee(erreur)
+        ? `${source.nom} refuse ta clé. Vérifie-la dans « Réglages ». Tu peux ajouter le titre à la main.`
         : "Recherche impossible (connexion ?). Tu peux ajouter le titre à la main."
     );
     return;
   }
   if (numero !== numeroRecherche) return; // une recherche plus récente a été lancée
 
-  const resultats = donnees.results
-    .filter((r) => r.media_type === "movie" || r.media_type === "tv") // sans les personnes
-    .slice(0, 8)
-    .map(convertirResultat);
-
   if (resultats.length === 0) {
-    afficherEtatRecherche("Aucun résultat sur TMDB. Appuie sur « Ajouter » pour l'ajouter à la main.");
+    afficherEtatRecherche(`Aucun résultat sur ${source.nom}. Appuie sur « Ajouter » pour l'ajouter à la main.`);
     return;
   }
 
@@ -764,7 +851,7 @@ async function rechercher() {
 
     const details = document.createElement("span");
     details.className = "details";
-    const nomType = res.type === "film" ? "🎬 Film" : "📺 Série";
+    const nomType = NOMS_TYPES[res.type];
     details.textContent = res.annee ? `${nomType} · ${res.annee}` : nomType;
 
     const textes = document.createElement("span");

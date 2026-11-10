@@ -324,15 +324,18 @@ select:focus-visible {
 .titre .details { display: block; font-size: 13px; color: var(--gris); margin-top: 2px; }
 li.fait .vignette { opacity: 0.5; } /* affiche grisée quand c'est terminé */
 
-/* ---------- Mention TMDB en bas de page ---------- */
-.mention-tmdb {
+/* ---------- Mentions TMDB et RAWG en bas de page ---------- */
+.mentions {
   margin-top: 32px;
   text-align: center;
   font-size: 12px;
   color: var(--gris);
 }
-.mention-tmdb img { display: inline-block; height: 16px; width: auto; }
-.mention-tmdb p { margin: 6px 0 0; }
+.mentions img { display: inline-block; height: 16px; width: auto; }
+.mentions p { margin: 6px 0 0; }
+.mentions p a { color: inherit; text-decoration: underline; }
+/* Espace entre les deux formulaires de clé dans « Réglages » */
+#formulaire-cle-rawg { margin-top: 16px; }
 
 /* ---------- Numéro de version à côté du titre ---------- */
 .version { font-size: 0.9rem; font-weight: 400; color: var(--gris); vertical-align: middle; }

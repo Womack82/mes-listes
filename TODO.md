@@ -26,3 +26,4 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 - [x] TMDB étape 4 : logo TMDB et mention « This product uses the TMDB API but is not endorsed or certified by TMDB » en bas de l'app
 - [x] Numéro de version (ex : v10) affiché à côté du titre, pour vérifier que la mise à jour est bien arrivée
 - [x] Règle de numérotation : nouvelle demande → numéro principal (v11, v12…) ; modification d'une demande existante → sous-numéro (v10.1, v10.2…)
+- [x] v11 — Recherche de jeux vidéo via RAWG (type « 🎮 Jeu ») : même présentation que TMDB, saisie manuelle toujours possible ; on stocke seulement titre, année et identifiant RAWG (**pas de jaquette**, emoji 🎮 à la place) ; clé RAWG dans « Réglages » (gardée seulement sur l'appareil) ; lien vers rawg.io en bas de l'app (exigé par RAWG) ; fichier de sauvegarde en version 3 (lit toujours les versions 1 et 2). Titres en anglais : RAWG ne propose pas le français

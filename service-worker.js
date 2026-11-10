@@ -7,7 +7,7 @@
 // téléphone continuera d'utiliser l'ancienne copie :
 // nouvelle demande → v11, v12… ; modification d'une demande existante → v10.1, v10.2…
 // ⚠️ Change aussi VERSION en haut de app.js (affichée à côté du titre).
-const NOM_CACHE = "mes-listes-v10.1";
+const NOM_CACHE = "mes-listes-v11";
 
 const FICHIERS = [
   "./",
@@ -42,7 +42,7 @@ self.addEventListener("activate", (evenement) => {
 // À chaque demande de fichier : on sert la copie en cache si elle existe,
 // sinon on va la chercher sur internet.
 self.addEventListener("fetch", (evenement) => {
-  // Les demandes vers d'autres sites (TMDB : recherche, affiches) ne passent
+  // Les demandes vers d'autres sites (TMDB, RAWG : recherche, affiches) ne passent
   // pas par le cache : le navigateur s'en occupe normalement.
   if (new URL(evenement.request.url).origin !== self.location.origin) return;
   evenement.respondWith(
