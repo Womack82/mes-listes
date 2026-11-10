@@ -224,50 +224,37 @@
     </button>
   </dialog>
 
-  <!-- Calque « Ajouter » : monte du bas de l'écran -->
+  <!-- Calque de saisie : monte du bas après le choix d'une catégorie -->
   <dialog id="feuille-ajout" class="panneau feuille" aria-labelledby="ajout-titre">
     <form id="formulaire-ajout" class="feuille-contenu" novalidate>
-      <div class="poignee" aria-hidden="true"></div>
-      <div class="panneau-entete">
-        <h2 id="ajout-titre">Ajouter</h2>
+      <!-- En-tête sur une ligne : retour au menu | icône | titre | fermer -->
+      <div class="feuille-entete">
+        <button type="button" id="ajout-retour" class="bouton-rond" aria-label="Retour aux catégories">
+          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <span id="ajout-icone" class="feuille-icone"></span>
+        <h2 id="ajout-titre">Ajouter un film</h2>
         <button type="button" id="ajout-fermer" class="bouton-rond" aria-label="Fermer">
           <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
 
-      <!-- Partie qui défile si la place manque (clavier ouvert) -->
-      <div class="feuille-defile">
-        <p class="etiquette-section" id="etiquette-categorie">Catégorie</p>
-        <!-- 5 tuiles : de vrais boutons radio, cachés, avec un dessin par-dessus -->
-        <div id="choix-categorie" class="tuiles" role="radiogroup" aria-labelledby="etiquette-categorie">
-          <label class="tuile"><input type="radio" name="categorie" value="film" checked>
-            <span class="tuile-corps"><span class="tuile-icone" data-type="film"></span>Film</span></label>
-          <label class="tuile"><input type="radio" name="categorie" value="serie">
-            <span class="tuile-corps"><span class="tuile-icone" data-type="serie"></span>Série</span></label>
-          <label class="tuile"><input type="radio" name="categorie" value="jeu">
-            <span class="tuile-corps"><span class="tuile-icone" data-type="jeu"></span>Jeu</span></label>
-          <label class="tuile"><input type="radio" name="categorie" value="recette">
-            <span class="tuile-corps"><span class="tuile-icone" data-type="recette"></span>Recette</span></label>
-          <label class="tuile"><input type="radio" name="categorie" value="autre">
-            <span class="tuile-corps"><span class="tuile-icone" data-type="autre"></span>Autre</span></label>
-        </div>
-
-        <label for="champ-titre" class="etiquette-section">Titre</label>
-        <input id="champ-titre" type="text" autocomplete="off" enterkeyhint="done"
-               placeholder="Nom du film" autofocus>
-
-        <!-- Résultats de la recherche TMDB (films, séries) ou RAWG (jeux), remplis par app.js -->
-        <p id="etat-recherche" class="aide" hidden></p>
-        <ul id="resultats-recherche" class="liste resultats" hidden></ul>
-        <!-- Saisie manuelle quand le bon titre n'est pas dans les résultats -->
-        <button type="button" id="ajout-tel-quel" class="bouton-contour" hidden></button>
+      <!-- Champ de saisie ; « Ajouter » à droite pour Recette et Autre -->
+      <div class="ligne-saisie">
+        <input id="champ-titre" type="text" aria-labelledby="ajout-titre"
+               autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"
+               enterkeyhint="search" placeholder="Nom du film">
+        <button type="button" id="ajout-direct" class="bouton-ajout-ligne" hidden>Ajouter</button>
       </div>
 
-      <!-- Visible en bas du calque, même clavier ouvert.
-           Caché quand des résultats s'affichent (« Pas dans la liste ? » le remplace) -->
-      <button type="submit" id="bouton-ajout-bas" class="bouton-ajout">Ajouter à ma liste</button>
-      <!-- Source des données, selon la catégorie (TMDB ou RAWG) -->
-      <p id="mention-source" class="mention-calque" hidden></p>
+      <!-- Film, Série, Jeu : résultats de la recherche TMDB / RAWG (remplis par
+           app.js), puis « Ajouter « titre » tel quel », puis la source des données -->
+      <div id="zone-resultats" class="feuille-defile">
+        <p id="etat-recherche" class="aide" hidden></p>
+        <ul id="resultats-recherche" class="liste resultats" hidden></ul>
+        <button type="button" id="ajout-tel-quel" class="bouton-contour" hidden></button>
+        <p id="mention-source" class="mention-calque"></p>
+      </div>
     </form>
   </dialog>
 

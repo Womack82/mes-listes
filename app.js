@@ -48,10 +48,9 @@ let supprimes = charger(CLE_SUPPRIMES);
 let filtreActif = "tous";
 
 // On récupère les morceaux de la page dont on a besoin
-// Le calque « Ajouter » : formulaire, champ titre, tuiles de catégorie
+// Le calque « Ajouter » : formulaire et champ titre
 const formulaire = document.getElementById("formulaire-ajout");
 const champTitre = document.getElementById("champ-titre");
-const choixCategorie = document.getElementById("choix-categorie");
 const liste = document.getElementById("liste");
 const messageVide = document.getElementById("message-vide");
 const boutonsFiltre = document.querySelectorAll("#filtres button");
@@ -440,10 +439,29 @@ document.getElementById("reglages-fermer").addEventListener("click", fermerRegla
 fermerSurVoile(panneauReglages, fermerReglages);
 
 // --- 5. Réagir aux actions de l'utilisateur ------------------
-// --- 4 quater. Le calque « Ajouter » (monte du bas) ----------
+// --- 4 quater. Ajouter un élément : menu des catégories, puis calque de saisie ---
 const feuilleAjout = document.getElementById("feuille-ajout");
+const ajoutIcone = document.getElementById("ajout-icone");
+const ajoutTitre = document.getElementById("ajout-titre");
+const ajoutDirect = document.getElementById("ajout-direct");
+const zoneResultats = document.getElementById("zone-resultats");
+const ajoutTelQuel = document.getElementById("ajout-tel-quel");
+const mentionSource = document.getElementById("mention-source");
 
-// Texte indicatif du champ, selon la catégorie choisie
+// Catégorie choisie dans le menu (film, serie, jeu, recette, autre)
+let categorieAjout = "film";
+function categorieChoisie() {
+  return categorieAjout;
+}
+
+// Titre du calque et texte indicatif du champ, selon la catégorie
+const TITRES_AJOUT = {
+  film: "Ajouter un film",
+  serie: "Ajouter une série",
+  jeu: "Ajouter un jeu",
+  recette: "Ajouter une recette",
+  autre: "Ajouter un élément",
+};
 const INDICATIONS = {
   film: "Nom du film",
   serie: "Nom de la série",
@@ -452,51 +470,20 @@ const INDICATIONS = {
   autre: "Ce qu'il ne faut pas oublier",
 };
 
-// La catégorie cochée parmi les 5 tuiles
-function categorieChoisie() {
-  return choixCategorie.querySelector("input:checked").value;
-}
-
-// Dessine l'icône de chaque tuile (les mêmes que sur les cartes)
-for (const zone of choixCategorie.querySelectorAll(".tuile-icone")) {
-  zone.append(creerIcone(ICONES_TYPES[zone.dataset.type]));
-}
-
-const boutonAjoutBas = document.getElementById("bouton-ajout-bas");
-const ajoutTelQuel = document.getElementById("ajout-tel-quel");
-const mentionSource = document.getElementById("mention-source");
-
-// Mention de la source des données en bas du calque, selon la catégorie
+// Mention de la source des données, en bas de la liste de résultats
 const MENTIONS = {
   film: "Données films et séries fournies par TMDB",
   serie: "Données films et séries fournies par TMDB",
   jeu: "Données jeux vidéo fournies par RAWG",
 };
-function majMention() {
-  const texte = MENTIONS[categorieChoisie()];
-  mentionSource.textContent = texte || "";
-  mentionSource.hidden = !texte; // rien pour Recette et Autre
-}
 
-// Avec des résultats : bouton « Pas dans la liste ? Ajouter … tel quel »
-// sous la liste, et le bouton orange du bas est caché (pas de doublon).
-// Sans résultats : l'inverse.
-function montrerBoutonsResultats(avecResultats) {
-  ajoutTelQuel.hidden = !avecResultats;
-  boutonAjoutBas.hidden = avecResultats;
-  majTelQuel();
-}
+// Dernière ligne de la liste : « Ajouter « titre » tel quel », qui suit ce
+// qui est tapé (cachée tant que le champ est vide)
 function majTelQuel() {
-  ajoutTelQuel.textContent = `Pas dans la liste ? Ajouter « ${champTitre.value.trim()} » tel quel`;
+  const titre = champTitre.value.trim();
+  ajoutTelQuel.textContent = `Ajouter « ${titre} » tel quel`;
+  ajoutTelQuel.hidden = titre === "";
 }
-
-// Changer de catégorie : nouveau texte indicatif, nouvelle mention,
-// et nouvelle recherche (TMDB pour films et séries, RAWG pour les jeux)
-choixCategorie.addEventListener("change", () => {
-  champTitre.placeholder = INDICATIONS[categorieChoisie()];
-  majMention();
-  programmerRecherche();
-});
 
 // Quand le clavier de l'iPhone s'ouvre, la page ne rétrécit pas : il
 // recouvre le bas de l'écran. On mesure la partie vraiment visible
@@ -509,12 +496,18 @@ function ajusterAuClavier() {
   feuilleAjout.style.setProperty("--visible", `${vue.height}px`);
 }
 
-function ouvrirAjout(type = "film") {
-  // Chaque ouverture repart de zéro : catégorie choisie, champ vide, pas de résultats
-  choixCategorie.querySelector(`input[value="${type}"]`).checked = true;
+// Ouvre le calque de saisie pour une catégorie
+function ouvrirAjout(type) {
+  categorieAjout = type;
+  const avecRecherche = sourcePourType(type) !== null; // film, série, jeu
+  ajoutIcone.replaceChildren(creerIcone(ICONES_TYPES[type]));
+  ajoutTitre.textContent = TITRES_AJOUT[type];
   champTitre.placeholder = INDICATIONS[type];
   champTitre.value = "";
-  majMention();
+  // Film, Série, Jeu : liste de résultats ; Recette, Autre : bouton « Ajouter »
+  zoneResultats.hidden = !avecRecherche;
+  ajoutDirect.hidden = avecRecherche;
+  mentionSource.textContent = MENTIONS[type] || "";
   masquerRecherche();
   ajusterAuClavier();
   feuilleAjout.showModal();
@@ -550,6 +543,11 @@ document.getElementById("menu-fermer").addEventListener("click", fermerMenu);
 fermerSurVoile(menuCategories, fermerMenu);
 
 document.getElementById("bouton-ajouter").addEventListener("click", ouvrirMenu);
+// Flèche de retour : on referme le calque et on revient au menu
+document.getElementById("ajout-retour").addEventListener("click", () => {
+  fermerAjout();
+  ouvrirMenu();
+});
 document.getElementById("ajout-fermer").addEventListener("click", fermerAjout);
 fermerSurVoile(feuilleAjout, fermerAjout);
 feuilleAjout.addEventListener("close", masquerRecherche); // Échap au clavier
@@ -558,7 +556,7 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener("scroll", ajusterAuClavier);
 }
 
-// Saisie manuelle (« Ajouter à ma liste » ou « Pas dans la liste ? ») :
+// Saisie manuelle (« Ajouter » ou « Ajouter « titre » tel quel ») :
 // le titre tel qu'il est écrit, sans infos TMDB / RAWG
 function ajouterTelQuel() {
   const titre = champTitre.value.trim();
@@ -569,10 +567,21 @@ function ajouterTelQuel() {
   ajouter(titre, categorieChoisie());
   fermerAjout();
 }
+// Touche Entrée du clavier :
+// - Film, Série, Jeu : lance la recherche tout de suite et ferme le clavier
+//   (pour voir tous les résultats) ;
+// - Recette, Autre : ajoute l'élément.
 formulaire.addEventListener("submit", (evenement) => {
   evenement.preventDefault(); // empêche la page de se recharger
-  ajouterTelQuel();
+  if (sourcePourType(categorieChoisie())) {
+    clearTimeout(minuteurRecherche);
+    rechercher();
+    champTitre.blur(); // fait descendre le clavier
+  } else {
+    ajouterTelQuel();
+  }
 });
+ajoutDirect.addEventListener("click", ajouterTelQuel);
 ajoutTelQuel.addEventListener("click", ajouterTelQuel);
 
 for (const bouton of boutonsFiltre) {
@@ -1009,7 +1018,7 @@ function masquerRecherche() {
   resultatsRecherche.hidden = true;
   resultatsRecherche.innerHTML = "";
   etatRecherche.hidden = true;
-  montrerBoutonsResultats(false);
+  majTelQuel();
 }
 
 function afficherEtatRecherche(texte) {
@@ -1017,7 +1026,7 @@ function afficherEtatRecherche(texte) {
   resultatsRecherche.innerHTML = "";
   etatRecherche.textContent = texte;
   etatRecherche.hidden = false;
-  montrerBoutonsResultats(false);
+  majTelQuel();
 }
 
 // Transforme un résultat TMDB en { titre, type, annee, affiche, idTmdb }
@@ -1139,7 +1148,7 @@ async function rechercher() {
   if (numero !== numeroRecherche) return; // une recherche plus récente a été lancée
 
   if (resultats.length === 0) {
-    afficherEtatRecherche(`Aucun résultat sur ${source.nom}. Appuie sur « Ajouter à ma liste » pour l'ajouter à la main.`);
+    afficherEtatRecherche(`Aucun résultat sur ${source.nom}. Tu peux l'ajouter tel quel.`);
     return;
   }
 
@@ -1181,7 +1190,7 @@ async function rechercher() {
     resultatsRecherche.append(li);
   }
   resultatsRecherche.hidden = false;
-  montrerBoutonsResultats(true);
+  majTelQuel();
 }
 
 // On attend une petite pause dans la frappe avant de chercher
@@ -1191,7 +1200,7 @@ function programmerRecherche() {
   minuteurRecherche = setTimeout(rechercher, 400);
 }
 champTitre.addEventListener("input", () => {
-  majTelQuel(); // le bouton « Pas dans la liste ? » suit ce qui est tapé
+  majTelQuel(); // la ligne « Ajouter … tel quel » suit ce qui est tapé
   programmerRecherche();
 });
 
