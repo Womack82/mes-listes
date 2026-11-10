@@ -5,7 +5,6 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 
 ## À faire
 
-- [ ] Ligne « Clés API » dans le panneau Réglages (les clés TMDB et RAWG sont cachées depuis la v14)
 - [ ] Trier la liste (à faire d'abord, ordre alphabétique…)
 - [ ] Ajouter une note à chaque élément (« recommandé par… », note sur 5)
 - [ ] Synchroniser la liste entre le PC et l'iPhone (stockage en ligne)
@@ -35,3 +34,4 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 - [x] v15.1 — Numéro de version placé en bas à droite du logo, aligné avec le bas du W (le logo reste centré)
 - [x] v1.1 — Nouvelle règle de numérotation : on reste en v1 et chaque changement ajoute 1 au second numéro (v1.1, v1.2…). Les numéros v10 à v15.1 ci-dessus datent de l'ancienne règle
 - [x] v1.2 — Animations légères (150 à 280 ms, courbe ease-out douce, seulement transform et opacity) : panneau Réglages qui descend avec fondu puis lignes qui apparaissent une à une (50 ms d'écart) ; calque d'ajout qui monte avec fondu, voile en fondu, tuiles avec léger zoom ; case qui se remplit, carte cochée qui disparaît en fondu et autres cartes qui remontent en glissant ; léger enfoncement à l'appui sur les boutons, cartes, tuiles et cases ; tout est coupé si « réduire les animations » est activé
+- [x] v1.3 — Résultats de recherche dans le calque d'ajout : chaque ligne avec affiche 52 × 76, titre, type et année, « Ajouter » orange (toute la ligne est appuyable) ; dessous, bouton à contour bleu « Pas dans la liste ? Ajouter [titre] tel quel » (le bouton orange du bas est alors caché) ; mention « Données films et séries fournies par TMDB » ou « Données jeux vidéo fournies par RAWG » en bas du calque ; ligne « Clés API » dans les Réglages avec les champs TMDB et RAWG (gardés uniquement sur l'appareil)

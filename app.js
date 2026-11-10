@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.2";
+const VERSION = "v1.3";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -417,6 +417,7 @@ const VUES = {
   faits: { titre: "Terminés", bloc: document.getElementById("vue-faits") },
   supprimes: { titre: "Supprimés", bloc: document.getElementById("vue-supprimes") },
   sauvegarde: { titre: "Sauvegarde", bloc: document.getElementById("vue-sauvegarde") },
+  cles: { titre: "Clés API", bloc: document.getElementById("vue-cles") },
 };
 
 // Montre une seule vue du panneau ; la flèche de retour hors du menu
@@ -461,10 +462,39 @@ for (const zone of choixCategorie.querySelectorAll(".tuile-icone")) {
   zone.append(creerIcone(ICONES_TYPES[zone.dataset.type]));
 }
 
-// Changer de catégorie : nouveau texte indicatif, et nouvelle recherche
-// (TMDB pour films et séries, RAWG pour les jeux, rien sinon)
+const boutonAjoutBas = document.getElementById("bouton-ajout-bas");
+const ajoutTelQuel = document.getElementById("ajout-tel-quel");
+const mentionSource = document.getElementById("mention-source");
+
+// Mention de la source des données en bas du calque, selon la catégorie
+const MENTIONS = {
+  film: "Données films et séries fournies par TMDB",
+  serie: "Données films et séries fournies par TMDB",
+  jeu: "Données jeux vidéo fournies par RAWG",
+};
+function majMention() {
+  const texte = MENTIONS[categorieChoisie()];
+  mentionSource.textContent = texte || "";
+  mentionSource.hidden = !texte; // rien pour Recette et Autre
+}
+
+// Avec des résultats : bouton « Pas dans la liste ? Ajouter … tel quel »
+// sous la liste, et le bouton orange du bas est caché (pas de doublon).
+// Sans résultats : l'inverse.
+function montrerBoutonsResultats(avecResultats) {
+  ajoutTelQuel.hidden = !avecResultats;
+  boutonAjoutBas.hidden = avecResultats;
+  majTelQuel();
+}
+function majTelQuel() {
+  ajoutTelQuel.textContent = `Pas dans la liste ? Ajouter « ${champTitre.value.trim()} » tel quel`;
+}
+
+// Changer de catégorie : nouveau texte indicatif, nouvelle mention,
+// et nouvelle recherche (TMDB pour films et séries, RAWG pour les jeux)
 choixCategorie.addEventListener("change", () => {
   champTitre.placeholder = INDICATIONS[categorieChoisie()];
+  majMention();
   programmerRecherche();
 });
 
@@ -484,6 +514,7 @@ function ouvrirAjout() {
   choixCategorie.querySelector('input[value="film"]').checked = true;
   champTitre.placeholder = INDICATIONS.film;
   champTitre.value = "";
+  majMention();
   masquerRecherche();
   ajusterAuClavier();
   feuilleAjout.showModal();
@@ -506,9 +537,9 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener("scroll", ajusterAuClavier);
 }
 
-// « Ajouter à ma liste » : saisie manuelle, sans infos TMDB / RAWG
-formulaire.addEventListener("submit", (evenement) => {
-  evenement.preventDefault(); // empêche la page de se recharger
+// Saisie manuelle (« Ajouter à ma liste » ou « Pas dans la liste ? ») :
+// le titre tel qu'il est écrit, sans infos TMDB / RAWG
+function ajouterTelQuel() {
   const titre = champTitre.value.trim();
   if (titre === "") {
     champTitre.focus(); // rien d'écrit : on remet simplement le curseur
@@ -516,7 +547,12 @@ formulaire.addEventListener("submit", (evenement) => {
   }
   ajouter(titre, categorieChoisie());
   fermerAjout();
+}
+formulaire.addEventListener("submit", (evenement) => {
+  evenement.preventDefault(); // empêche la page de se recharger
+  ajouterTelQuel();
 });
+ajoutTelQuel.addEventListener("click", ajouterTelQuel);
 
 for (const bouton of boutonsFiltre) {
   bouton.addEventListener("click", () => {
@@ -952,6 +988,7 @@ function masquerRecherche() {
   resultatsRecherche.hidden = true;
   resultatsRecherche.innerHTML = "";
   etatRecherche.hidden = true;
+  montrerBoutonsResultats(false);
 }
 
 function afficherEtatRecherche(texte) {
@@ -959,6 +996,7 @@ function afficherEtatRecherche(texte) {
   resultatsRecherche.innerHTML = "";
   etatRecherche.textContent = texte;
   etatRecherche.hidden = false;
+  montrerBoutonsResultats(false);
 }
 
 // Transforme un résultat TMDB en { titre, type, annee, affiche, idTmdb }
@@ -1023,7 +1061,6 @@ function sourcePourType(type) {
   return null;
 }
 
-const NOMS_TYPES = { film: "🎬 Film", serie: "📺 Série", jeu: "🎮 Jeu" };
 
 // Fabrique la vignette d'un élément : l'affiche, ou un carré bleu marine
 // avec l'icône orange du type s'il n'y a pas d'affiche ou si elle ne se
@@ -1054,7 +1091,7 @@ async function rechercher() {
     return;
   }
   if (source.lireCle() === "") {
-    afficherEtatRecherche(`Recherche ${source.nom} désactivée : aucune clé sur cet appareil. Tu peux ajouter le titre à la main.`);
+    afficherEtatRecherche(`Recherche ${source.nom} désactivée : ajoute ta clé dans Réglages → Clés API. Tu peux aussi ajouter le titre à la main.`);
     return;
   }
   if (!navigator.onLine) {
@@ -1073,7 +1110,7 @@ async function rechercher() {
     if (numero !== numeroRecherche) return;
     afficherEtatRecherche(
       cleRefusee(erreur)
-        ? `${source.nom} refuse ta clé. Vérifie-la dans « Réglages ». Tu peux ajouter le titre à la main.`
+        ? `${source.nom} refuse ta clé. Vérifie-la dans Réglages → Clés API. Tu peux ajouter le titre à la main.`
         : "Recherche impossible (connexion ?). Tu peux ajouter le titre à la main."
     );
     return;
@@ -1085,13 +1122,17 @@ async function rechercher() {
     return;
   }
 
-  etatRecherche.textContent = "Touche un résultat pour l'ajouter, ou « Ajouter à ma liste » pour garder ton texte :";
+  etatRecherche.hidden = true;
   resultatsRecherche.innerHTML = "";
   for (const res of resultats) {
+    // Chaque ligne : affiche 52 × 76, titre, type et année, « Ajouter » orange.
+    // Toute la ligne est appuyable (plus facile au doigt) ; le mot « Ajouter »
+    // a l'air d'un bouton pour qu'on comprenne ce qui va se passer.
     const li = document.createElement("li");
     const bouton = document.createElement("button");
     bouton.type = "button";
     bouton.className = "resultat";
+    bouton.setAttribute("aria-label", `Ajouter ${res.titre}${res.annee ? ` (${res.annee})` : ""}`);
 
     const titre = document.createElement("span");
     titre.className = "titre";
@@ -1099,14 +1140,18 @@ async function rechercher() {
 
     const details = document.createElement("span");
     details.className = "details";
-    const nomType = NOMS_TYPES[res.type];
+    const nomType = NOMS_SIMPLES[res.type];
     details.textContent = res.annee ? `${nomType} · ${res.annee}` : nomType;
 
     const textes = document.createElement("span");
     textes.className = "textes";
     textes.append(titre, details);
 
-    bouton.append(creerVignette(res.affiche, res.type), textes);
+    const pastille = document.createElement("span");
+    pastille.className = "pastille-ajouter";
+    pastille.textContent = "Ajouter";
+
+    bouton.append(creerVignette(res.affiche, res.type), textes, pastille);
     bouton.addEventListener("click", () => {
       ajouter(res.titre, res.type, res);
       fermerAjout();
@@ -1115,6 +1160,7 @@ async function rechercher() {
     resultatsRecherche.append(li);
   }
   resultatsRecherche.hidden = false;
+  montrerBoutonsResultats(true);
 }
 
 // On attend une petite pause dans la frappe avant de chercher
@@ -1123,7 +1169,10 @@ function programmerRecherche() {
   clearTimeout(minuteurRecherche);
   minuteurRecherche = setTimeout(rechercher, 400);
 }
-champTitre.addEventListener("input", programmerRecherche);
+champTitre.addEventListener("input", () => {
+  majTelQuel(); // le bouton « Pas dans la liste ? » suit ce qui est tapé
+  programmerRecherche();
+});
 
 // --- 9. Démarrage --------------------------------------------
 // Les sections "Terminés" et "Supprimés" sont fermées à chaque ouverture

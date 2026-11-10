@@ -56,41 +56,6 @@
     <ul id="liste" class="liste"></ul>
     <p id="message-vide" hidden></p>
 
-    <!-- Clés TMDB et RAWG : cachées en attendant la ligne « Clés API » des Réglages -->
-    <details id="section-reglages" class="section" hidden>
-      <summary>Réglages</summary>
-      <form id="formulaire-cle" class="sauvegarde">
-        <p class="aide">
-          Clé API TMDB, pour chercher films et séries. Elle est gardée uniquement
-          dans la mémoire de cet appareil : jamais envoyée sur GitHub, jamais
-          mise dans les exports. À coller une fois par appareil (PC, Safari,
-          app de l'écran d'accueil).
-        </p>
-        <p id="etat-cle" class="aide"></p>
-        <input id="champ-cle" class="champ-reglage" type="password" autocomplete="off"
-               autocapitalize="off" spellcheck="false" placeholder="Colle ta clé TMDB ici">
-        <div class="boutons-sauvegarde">
-          <button type="submit">Enregistrer la clé</button>
-          <button type="button" id="bouton-effacer-cle">Effacer la clé</button>
-        </div>
-        <p id="message-cle" class="message" role="status" hidden></p>
-      </form>
-      <form id="formulaire-cle-rawg" class="sauvegarde">
-        <p class="aide">
-          Clé API RAWG, pour chercher les jeux vidéo (à créer gratuitement sur
-          rawg.io, rubrique « API »). Mêmes règles : gardée uniquement sur cet
-          appareil.
-        </p>
-        <p id="etat-cle-rawg" class="aide"></p>
-        <input id="champ-cle-rawg" class="champ-reglage" type="password" autocomplete="off"
-               autocapitalize="off" spellcheck="false" placeholder="Colle ta clé RAWG ici">
-        <div class="boutons-sauvegarde">
-          <button type="submit">Enregistrer la clé</button>
-          <button type="button" id="bouton-effacer-cle-rawg">Effacer la clé</button>
-        </div>
-        <p id="message-cle-rawg" class="message" role="status" hidden></p>
-      </form>
-    </details>
 
     <!-- Mentions exigées par les conditions d'utilisation de TMDB et de RAWG
          (RAWG demande un lien cliquable vers rawg.io) -->
@@ -141,6 +106,14 @@
           </span>
           <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
         </button>
+        <button type="button" class="ligne-reglage" data-vue="cles">
+          <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M16 7l3 3M18 5l2 2"/></svg></span>
+          <span class="ligne-textes">
+            <span class="ligne-titre">Clés API</span>
+            <span class="ligne-sous-titre">Recherche films, séries (TMDB) et jeux (RAWG)</span>
+          </span>
+          <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
       </div>
 
       <!-- Terminés : cartes cochées (décocher = remettre à faire) -->
@@ -169,6 +142,41 @@
         <input type="file" id="champ-fichier" accept=".json,application/json" hidden>
         <!-- Message de réussite ou d'erreur -->
         <p id="message-sauvegarde" class="message" role="status" hidden></p>
+      </div>
+
+      <!-- Clés API : TMDB (films, séries) et RAWG (jeux), gardées sur cet appareil -->
+      <div id="vue-cles" hidden>
+        <form id="formulaire-cle" class="sauvegarde">
+          <p class="aide">
+            Clé API TMDB, pour chercher films et séries. Elle est gardée uniquement
+            dans la mémoire de cet appareil : jamais envoyée sur GitHub, jamais
+            mise dans les exports. À coller une fois par appareil (PC, Safari,
+            app de l'écran d'accueil).
+          </p>
+          <p id="etat-cle" class="aide"></p>
+          <input id="champ-cle" class="champ-reglage" type="password" autocomplete="off"
+                 autocapitalize="off" spellcheck="false" placeholder="Colle ta clé TMDB ici">
+          <div class="boutons-sauvegarde">
+            <button type="submit">Enregistrer la clé</button>
+            <button type="button" id="bouton-effacer-cle">Effacer la clé</button>
+          </div>
+          <p id="message-cle" class="message" role="status" hidden></p>
+        </form>
+        <form id="formulaire-cle-rawg" class="sauvegarde">
+          <p class="aide">
+            Clé API RAWG, pour chercher les jeux vidéo (à créer gratuitement sur
+            rawg.io, rubrique « API »). Mêmes règles : gardée uniquement sur cet
+            appareil.
+          </p>
+          <p id="etat-cle-rawg" class="aide"></p>
+          <input id="champ-cle-rawg" class="champ-reglage" type="password" autocomplete="off"
+                 autocapitalize="off" spellcheck="false" placeholder="Colle ta clé RAWG ici">
+          <div class="boutons-sauvegarde">
+            <button type="submit">Enregistrer la clé</button>
+            <button type="button" id="bouton-effacer-cle-rawg">Effacer la clé</button>
+          </div>
+          <p id="message-cle-rawg" class="message" role="status" hidden></p>
+        </form>
       </div>
     </div>
   </dialog>
@@ -237,10 +245,15 @@
         <!-- Résultats de la recherche TMDB (films, séries) ou RAWG (jeux), remplis par app.js -->
         <p id="etat-recherche" class="aide" hidden></p>
         <ul id="resultats-recherche" class="liste resultats" hidden></ul>
+        <!-- Saisie manuelle quand le bon titre n'est pas dans les résultats -->
+        <button type="button" id="ajout-tel-quel" class="bouton-contour" hidden></button>
       </div>
 
-      <!-- Toujours visible en bas du calque, même clavier ouvert -->
-      <button type="submit" class="bouton-ajout">Ajouter à ma liste</button>
+      <!-- Visible en bas du calque, même clavier ouvert.
+           Caché quand des résultats s'affichent (« Pas dans la liste ? » le remplace) -->
+      <button type="submit" id="bouton-ajout-bas" class="bouton-ajout">Ajouter à ma liste</button>
+      <!-- Source des données, selon la catégorie (TMDB ou RAWG) -->
+      <p id="mention-source" class="mention-calque" hidden></p>
     </form>
   </dialog>
 

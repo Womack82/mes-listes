@@ -605,7 +605,7 @@ main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
 .feuille .resultats li { margin-bottom: 6px; }
 .feuille .resultat { background: var(--fond); }
 
-/* Bouton « Ajouter à ma liste » : pleine largeur, toujours visible en bas */
+/* Bouton « Ajouter à ma liste » : pleine largeur, en bas du calque */
 .bouton-ajout {
   flex-shrink: 0;
   width: 100%;
@@ -614,6 +614,30 @@ main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
   border: none;
   border-radius: 14px;
   font-size: 17px;
+}
+
+/* « Pas dans la liste ? Ajouter … tel quel » : contour bleu, sous les résultats */
+.bouton-contour {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 4px;
+  padding: 10px 14px;
+  border: 2px solid var(--bleu);
+  border-radius: 14px;
+  background: var(--carte);
+  color: var(--bleu);
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+/* « Données … fournies par TMDB / RAWG » : en petit, tout en bas du calque */
+.mention-calque {
+  flex-shrink: 0;
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--gris);
 }
 
 /* ---------- Sauvegarde (dans le panneau Réglages) ---------- */
@@ -656,7 +680,7 @@ main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
 .boutons-fenetre { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 .boutons-fenetre .danger { background: var(--rouge); border-color: var(--rouge); color: white; }
 
-/* ---------- Clés TMDB et RAWG (cachées pour l'instant) ---------- */
+/* ---------- Clés TMDB et RAWG (Réglages → Clés API) ---------- */
 .champ-reglage {
   width: 100%;
   min-height: 48px;
@@ -674,14 +698,14 @@ main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
 #etat-recherche { font-size: 14px; color: var(--gris); margin: 12px 0 8px; }
 .resultats { margin-top: 8px; }
 
-/* Chaque résultat est un grand bouton : vignette + titre + type/année */
+/* Chaque résultat est un grand bouton : affiche + titre + type/année + « Ajouter » */
 .resultat {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
   min-height: 60px;
-  padding: 8px 12px;
+  padding: 8px 10px 8px 8px;
   border: none;
   border-radius: var(--arrondi);
   background: var(--carte);
@@ -689,8 +713,25 @@ main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
   font-size: 16px;
   text-align: left;
 }
-.resultat .textes { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.resultat .vignette { width: 52px; height: 76px; }
+.resultat .textes { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.resultat .titre { font-weight: 700; word-break: break-word; }
 .resultat .details { font-size: 13px; color: var(--gris); }
+/* « Ajouter » orange, texte marine (dessiné comme un bouton) */
+.pastille-ajouter {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--texte);
+  font-size: 14px;
+  font-weight: 700;
+  transition: background-color var(--duree) ease-out;
+}
+.resultat:active .pastille-ajouter { background: var(--accent-survol); }
+@media (hover: hover) {
+  .resultat:hover .pastille-ajouter { background: var(--accent-survol); }
+}
 
 /* ---------- Mentions TMDB et RAWG en bas de page ---------- */
 .mentions {
