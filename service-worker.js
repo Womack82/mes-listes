@@ -15,7 +15,6 @@ const FICHIERS = [
   "style.css",
   "app.js",
   "manifest.json",
-  "icons/icon-180.png",
   "icons/icon-192.png",
   "icons/icon-512.png",
   "icons/tmdb.svg",
