@@ -15,6 +15,7 @@
   --ombre: 0 1px 3px rgba(10, 35, 66, 0.12);
   --arrondi: 16px;          /* coins des cartes */
   --duree: 180ms;           /* durée des animations (entre 150 et 280 ms) */
+  --courbe: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out doux : rapide au début, se pose en douceur */
 }
 
 * { box-sizing: border-box; }
@@ -205,7 +206,7 @@ h1, h2 { color: var(--texte); }
   border-radius: 50%;
   border: 2px solid var(--bleu);
   background: var(--carte);
-  transition: background-color var(--duree) ease;
+  transition: background-color 150ms ease-out, transform 150ms var(--courbe);
 }
 .rond .coche {
   width: 16px;
@@ -216,10 +217,22 @@ h1, h2 { color: var(--texte); }
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0;
-  transition: opacity var(--duree) ease;
+  transform: scale(0.4);
+  transition: opacity 150ms ease-out, transform 200ms var(--courbe);
 }
+/* Cocher : le rond se remplit de bleu et la coche grandit */
 .case-ronde input:checked + .rond { background: var(--bleu); }
-.case-ronde input:checked + .rond .coche { opacity: 1; }
+.case-ronde input:checked + .rond .coche { opacity: 1; transform: none; }
+/* Appui sur la case : elle s'enfonce un peu */
+.case-ronde:active .rond { transform: scale(0.88); }
+
+/* Carte qui s'en va (cochée ou décochée) : fondu en glissant un peu à droite.
+   Les autres cartes remontent ensuite en glissant (géré par app.js). */
+.carte.sortie {
+  animation: sortir 220ms var(--courbe) forwards;
+  pointer-events: none; /* plus d'appui possible pendant qu'elle part */
+}
+@keyframes sortir { to { opacity: 0; transform: translateX(24px) scale(0.97); } }
 .case-ronde input:focus-visible + .rond { outline: 3px solid var(--bleu); outline-offset: 2px; }
 
 /* Élément terminé : titre barré et grisé, vignette pâlie */
@@ -267,13 +280,23 @@ h1, h2 { color: var(--texte); }
 .panneau-bas { margin: auto auto 0; border-radius: var(--arrondi) var(--arrondi) 0 0; }
 .panneau-bas .panneau-contenu { padding-bottom: calc(env(safe-area-inset-bottom) + 16px); }
 
-/* Animations d'ouverture : descend du haut / monte du bas, voile en fondu */
-.panneau-haut[open] { animation: descendre 260ms ease-out; }
-.panneau-bas[open] { animation: monter 240ms ease-out; }
-.panneau[open]::backdrop { animation: fondu 200ms ease-out; }
-@keyframes descendre { from { transform: translateY(-100%); } }
-@keyframes monter { from { transform: translateY(100%); } }
+/* Animations d'ouverture : descend du haut / monte du bas avec un léger
+   fondu, voile en fondu. Seulement transform et opacity : c'est fluide. */
+.panneau-haut[open] { animation: descendre 260ms var(--courbe); }
+.panneau-bas[open] { animation: monter 260ms var(--courbe); }
+.panneau[open]::backdrop { animation: fondu 220ms ease-out; }
+@keyframes descendre { from { transform: translateY(-100%); opacity: 0.4; } }
+@keyframes monter { from { transform: translateY(100%); opacity: 0.4; } }
 @keyframes fondu { from { opacity: 0; } }
+
+/* Lignes du menu Réglages : apparaissent l'une après l'autre (50 ms d'écart),
+   une fois que le panneau est presque descendu */
+.panneau-haut[open] #vue-menu .ligne-reglage { animation: apparaitre 220ms var(--courbe) both; }
+.panneau-haut[open] #vue-menu .ligne-reglage:nth-child(1) { animation-delay: 120ms; }
+.panneau-haut[open] #vue-menu .ligne-reglage:nth-child(2) { animation-delay: 170ms; }
+.panneau-haut[open] #vue-menu .ligne-reglage:nth-child(3) { animation-delay: 220ms; }
+.panneau-haut[open] #vue-menu .ligne-reglage:nth-child(4) { animation-delay: 270ms; }
+@keyframes apparaitre { from { opacity: 0; transform: translateY(-8px); } }
 
 /* En-tête du panneau Réglages : retour | titre | fermer */
 .panneau-entete {
@@ -414,10 +437,10 @@ button,
 .bouton-action,
 .section summary {
   transition:
-    transform var(--duree) ease,
-    background-color var(--duree) ease,
-    border-color var(--duree) ease,
-    filter var(--duree) ease;
+    transform 150ms var(--courbe),
+    background-color var(--duree) ease-out,
+    border-color var(--duree) ease-out,
+    filter var(--duree) ease-out;
 }
 
 /* Survol à la souris (uniquement sur les appareils qui ont une souris) */
@@ -438,15 +461,16 @@ button,
 }
 
 /* Appui (doigt ou clic) : le bouton s'enfonce légèrement.
-   (Les cartes et les lignes de réglage ne rétrécissent pas : juste plus sombres.) */
+   (Les cartes et les lignes de réglage s'enfoncent à peine, sinon ça bouge trop.) */
 button:active,
 .bouton-action:active,
 .section summary:active {
   transform: scale(0.96);
-  filter: brightness(0.9);
+  filter: brightness(0.92);
 }
 .carte-corps:active,
-.ligne-reglage:active { transform: none; filter: brightness(0.95); }
+.ligne-reglage:active { transform: scale(0.985); filter: brightness(0.96); }
+.tuile:active .tuile-corps { transform: scale(0.94); }
 /* Boutons orange appuyés : orange plus clair */
 .bouton-ajout:active,
 .bouton-flottant:active,
@@ -503,8 +527,11 @@ main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
 .feuille[open] {
   display: flex;
   flex-direction: column;
-  animation: monter 240ms ease-out;
+  animation: monter 260ms var(--courbe);
 }
+/* Les tuiles de catégorie apparaissent avec un léger zoom */
+.feuille[open] .tuile-corps { animation: zoomer 220ms var(--courbe) 80ms both; }
+@keyframes zoomer { from { opacity: 0; transform: scale(0.85); } }
 .feuille-contenu {
   display: flex;
   flex-direction: column;
@@ -553,7 +580,7 @@ main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
   color: var(--texte);
   font-size: 12px;
   font-weight: 600;
-  transition: background-color var(--duree) ease, color var(--duree) ease;
+  transition: background-color var(--duree) ease-out, color var(--duree) ease-out, transform 150ms var(--courbe);
 }
 .tuile-icone { display: flex; }
 /* Tuile choisie : bleu, texte blanc */
@@ -678,12 +705,19 @@ main { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
 
 /* ---------- « Réduire les animations » activé sur l'appareil ---------- */
 /* Réglages iPhone > Accessibilité > Mouvement : on coupe toutes les animations */
+/* (app.js vérifie aussi ce réglage : la carte cochée disparaît alors d'un coup) */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after, *::backdrop {
     transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
     animation-duration: 0ms !important;
+    animation-delay: 0ms !important;
   }
   button:active,
   .bouton-action:active,
-  .section summary:active { transform: none; }
+  .section summary:active,
+  .carte-corps:active,
+  .ligne-reglage:active,
+  .tuile:active .tuile-corps,
+  .case-ronde:active .rond { transform: none; }
 }

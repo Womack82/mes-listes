@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.1";
+const VERSION = "v1.2";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -133,6 +133,7 @@ function afficher() {
 function creerCarte(el) {
   const li = document.createElement("li");
   li.className = "carte";
+  li.dataset.id = el.id; // pour retrouver la carte et la faire glisser (animations)
   if (el.fait) li.classList.add("fait");
 
   // Toute la partie gauche est un bouton : il ouvre le panneau d'actions
@@ -164,7 +165,7 @@ function creerCarte(el) {
   caseACocher.type = "checkbox";
   caseACocher.checked = el.fait;
   caseACocher.setAttribute("aria-label", el.fait ? `Remettre à faire : ${el.titre}` : `Marquer comme terminé : ${el.titre}`);
-  caseACocher.addEventListener("change", () => basculer(el.id));
+  caseACocher.addEventListener("change", () => basculer(el.id, li));
   const rond = document.createElement("span");
   rond.className = "rond";
   rond.append(creerIcone("M6 12.5l4 4 8-9", "coche"));
@@ -232,11 +233,49 @@ function retirerInfosExternes(el) {
   delete el.idRawg;
 }
 
-function basculer(id) {
+// « Réduire les animations » activé sur le téléphone ?
+const sansAnimation = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+// Cocher / décocher. La coche est enregistrée tout de suite ; seul
+// l'affichage attend la fin de l'animation :
+// 1. la case se remplit (150 ms, en CSS)
+// 2. la carte disparaît en fondu (220 ms, classe "sortie")
+// 3. la liste est redessinée et les autres cartes remontent en glissant
+function basculer(id, carte = null) {
   const el = elements.find((e) => e.id === id);
   el.fait = !el.fait; // true devient false et inversement
   sauvegarder();
+
+  if (!carte || sansAnimation.matches) {
+    afficher();
+    return;
+  }
+  setTimeout(() => {
+    carte.classList.add("sortie");
+    setTimeout(afficherEnDouceur, 220);
+  }, 150);
+}
+
+// Redessine les listes, puis fait glisser chaque carte restante de son
+// ancienne place vers la nouvelle (au lieu de sauter d'un coup).
+// On mesure les positions avant et après, et on anime seulement "transform".
+function afficherEnDouceur() {
+  const cle = (carte) => `${carte.parentElement.id}/${carte.dataset.id}`;
+  const avant = new Map();
+  for (const carte of document.querySelectorAll(".carte[data-id]")) {
+    avant.set(cle(carte), carte.getBoundingClientRect().top);
+  }
   afficher();
+  for (const carte of document.querySelectorAll(".carte[data-id]")) {
+    const ancienHaut = avant.get(cle(carte));
+    if (ancienHaut === undefined) continue; // carte nouvelle dans cette liste
+    const ecart = ancienHaut - carte.getBoundingClientRect().top;
+    if (Math.abs(ecart) < 1) continue; // n'a pas bougé
+    carte.animate(
+      [{ transform: `translateY(${ecart}px)` }, { transform: "none" }],
+      { duration: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
+    );
+  }
 }
 
 function modifier(id, titre, type) {
