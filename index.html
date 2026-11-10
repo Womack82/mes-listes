@@ -29,14 +29,11 @@
           <circle cx="12" cy="12" r="3"/>
         </svg>
       </button>
-      <!-- Logo W dessiné en SVG (trois branches mesurées sur l'image d'origine).
-           Le texte « Mes listes » reste lu par les lecteurs d'écran. -->
+      <!-- Logo W (fichier icons/logo-w.svg). Le texte alternatif « Mes listes »
+           est lu par les lecteurs d'écran. width/height réservent la place
+           avant le chargement de l'image (650 × 345 réduit à 54 px de large). -->
       <h1 class="titre-app">
-        <svg class="logo" viewBox="59 79 605 297" role="img" aria-label="Mes listes">
-          <polygon points="59,79 175,79 327,290 268,376"/>
-          <polygon points="250,79 367,79 517,290 458,376"/>
-          <polygon points="555,79 664,79 534,267 480,189"/>
-        </svg>
+        <img class="logo" src="icons/logo-w.svg" alt="Mes listes" width="54" height="29">
         <span id="version" class="version"></span>
       </h1>
       <span aria-hidden="true"></span> <!-- case vide à droite, pour garder le logo au centre -->

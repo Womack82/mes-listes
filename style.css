@@ -64,7 +64,7 @@ h1, h2 { color: var(--texte); }
   justify-self: center;
   margin: 0;
 }
-.logo { display: block; width: 110px; height: auto; fill: var(--texte); }
+.logo { display: block; width: 54px; height: auto; }
 /* Numéro de version : en bas à droite du logo, aligné sur le bas du W */
 .version {
   position: absolute;
