@@ -56,15 +56,26 @@ h1, h2 { color: var(--texte); }
   align-items: center;
   margin: 4px 0 16px;
 }
+/* Le titre prend juste la largeur du logo et reste centré ;
+   le numéro de version est posé à sa droite sans le décaler */
 .titre-app {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  position: relative;
+  justify-self: center;
   margin: 0;
 }
 .logo { display: block; width: 110px; height: auto; fill: var(--texte); }
-.version { font-size: 0.75rem; font-weight: 400; color: var(--gris); }
+/* Numéro de version : en bas à droite du logo, aligné sur le bas du W */
+.version {
+  position: absolute;
+  left: 100%;
+  bottom: 0;
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--gris);
+}
 
 /* Bouton rond blanc de 44 px, ombre légère et fin contour bleu :
    la roue Réglages, et le retour / la fermeture des panneaux */
