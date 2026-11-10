@@ -7,16 +7,21 @@
   --texte: #0a2342;         /* texte et titres (bleu marine) */
   --gris: #4a5d78;          /* texte secondaire */
   --accent: #ff6a00;        /* accent principal (orange), texte marine dessus */
-  --accent-survol: #ff9b54; /* survol et appui de l'accent */
+  --accent-survol: #ff9b54; /* survol et appui de l'accent ; icônes des vignettes */
   --bleu: #2c6e9a;          /* éléments actifs et secondaires, texte blanc dessus */
-  --bouton-fond: #e9eef5;   /* fond des petits boutons dans les cartes */
   --bouton-bord: #c9d4e2;   /* bordures discrètes */
-  --rouge: #b42318;         /* suppression (texte blanc dessus) */
+  --rouge: #b42318;         /* suppression */
+  --voile: rgba(10, 35, 66, 0.55); /* voile sombre derrière les panneaux */
+  --ombre: 0 1px 3px rgba(10, 35, 66, 0.12);
   --arrondi: 16px;          /* coins des cartes */
   --duree: 180ms;           /* durée des animations (entre 150 et 280 ms) */
 }
 
 * { box-sizing: border-box; }
+
+/* Un élément marqué "hidden" reste toujours caché,
+   même si une règle plus bas lui donne un "display" */
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -28,67 +33,79 @@ body {
   padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
 }
 
-main { max-width: 600px; margin: 0 auto; padding-block: 16px; }
+main { max-width: 600px; margin: 0 auto; padding-block: 12px 24px; }
 
 h1, h2 { color: var(--texte); }
 
-/* ---------- En-tête : logo W centré, numéro de version dessous ---------- */
+/* Icônes SVG dessinées au trait, de la couleur du texte autour */
+.icone-svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+/* ---------- En-tête : roue à gauche, logo au centre, vide à droite ---------- */
 .entete {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  margin: 4px 0 16px;
+}
+.titre-app {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  margin: 8px 0 20px;
+  gap: 2px;
+  margin: 0;
 }
-.logo { display: block; width: 120px; height: auto; fill: var(--texte); }
+.logo { display: block; width: 110px; height: auto; fill: var(--texte); }
+.version { font-size: 0.75rem; font-weight: 400; color: var(--gris); }
 
-/* ---------- Formulaire d'ajout ---------- */
-#formulaire-ajout { display: flex; flex-wrap: wrap; gap: 8px; }
-
-#formulaire-ajout input,
-#formulaire-ajout select,
-#formulaire-ajout button {
-  font-size: 16px; /* 16px minimum : sinon l'iPhone zoome dans le champ */
-  min-height: 48px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid var(--bouton-bord);
+/* Bouton rond blanc de 44 px, ombre légère et fin contour bleu :
+   la roue Réglages, et le retour / la fermeture des panneaux */
+.bouton-rond {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--bleu);
   background: var(--carte);
   color: var(--texte);
+  box-shadow: var(--ombre);
 }
 
-#champ-titre { flex: 1 1 100%; }
-#champ-type { flex: 1; }
-
-/* Bouton principal (orange, texte marine) */
-#formulaire-ajout button,
-form.edition button[type="submit"],
-.boutons-fenetre #bouton-sauver-avant,
-.boutons-sauvegarde button[type="submit"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--texte);
-  font-weight: 700;
-}
-
-/* ---------- Filtres ---------- */
+/* ---------- Filtres : deux lignes de trois pastilles ---------- */
 #filtres {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  overflow-x: auto; /* défilement horizontal si l'écran est étroit */
-  margin: 16px 0;
-  padding-bottom: 4px;
+  margin: 0 0 16px;
 }
 
 #filtres button {
-  flex-shrink: 0;
-  min-height: 44px;
-  padding: 8px 16px;
-  border-radius: 22px;
+  position: relative;
+  height: 36px;
+  padding: 0 6px;
+  border-radius: 18px;
   border: 1px solid var(--bouton-bord);
   background: var(--carte);
   color: var(--texte);
-  font-size: 15px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+/* Zone d'appui invisible agrandie à 44 px de haut (36 px + 4 px au-dessus et dessous) */
+#filtres button::before {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
 }
 
 /* Filtre choisi : bleu, texte blanc */
@@ -99,124 +116,282 @@ form.edition button[type="submit"],
   font-weight: 600;
 }
 
-/* ---------- Listes (à faire et terminés) : cartes blanches ---------- */
+/* ---------- Cartes de la liste ---------- */
 .liste { list-style: none; padding: 0; margin: 0; }
 
-.liste li {
+.carte {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--carte);
+  padding: 10px 6px 10px 10px;
+  border-radius: var(--arrondi);
+  margin-bottom: 8px;
+  box-shadow: var(--ombre);
+}
+
+/* Partie gauche de la carte : un grand bouton (ouvre le panneau d'actions) */
+.carte-corps {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--carte);
-  padding: 12px;
-  border-radius: var(--arrondi);
-  margin-bottom: 8px;
-  box-shadow: 0 1px 2px rgba(10, 35, 66, 0.06);
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--texte);
+  font: inherit;
+  text-align: left;
 }
+.carte-textes { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.carte-titre { font-weight: 700; font-size: 16px; word-break: break-word; }
+.carte-details { font-size: 13px; color: var(--gris); }
 
-.liste input[type="checkbox"] {
-  width: 24px;
-  height: 24px;
+/* Vignette 48 × 68 : l'affiche, ou un carré marine avec l'icône orange du type */
+.vignette {
+  width: 48px;
+  height: 68px;
   flex-shrink: 0;
-  accent-color: var(--bleu); /* case cochée en bleu */
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--texte);
 }
-
-.titre { flex: 1; word-break: break-word; }
-
-/* Élément terminé : barré et grisé */
-li.fait .titre { text-decoration: line-through; color: var(--gris); }
-
-/* Boutons ✏️ et ✕ au bout de chaque ligne : 44 px pour le doigt */
-.icone {
+.vignette-vide {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
+  color: var(--accent-survol);
+}
+.vignette-vide .icone-svg { width: 26px; height: 26px; }
+
+/* Case ronde de 26 px à droite. La vraie case à cocher est invisible
+   et couvre toute la zone de 44 px ; le rond est dessiné à côté. */
+.case-ronde {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
   height: 44px;
-  background: var(--bouton-fond);
-  border: 1px solid var(--bouton-bord);
-  border-radius: 12px;
-  font-size: 16px;
-  color: var(--gris);
-  padding: 0 8px;
   flex-shrink: 0;
 }
-
-/* Le bouton ✕ devenu "Supprimer ?" : rouge pour attirer l'attention */
-.supprimer.confirmer {
-  font-size: 14px;
-  font-weight: 600;
-  color: white;
-  background: var(--rouge);
-  border-color: var(--rouge);
-  padding: 6px 12px;
+.case-ronde input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
 }
+.rond {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--bleu);
+  background: var(--carte);
+  transition: background-color var(--duree) ease;
+}
+.rond .coche {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: white;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  transition: opacity var(--duree) ease;
+}
+.case-ronde input:checked + .rond { background: var(--bleu); }
+.case-ronde input:checked + .rond .coche { opacity: 1; }
+.case-ronde input:focus-visible + .rond { outline: 3px solid var(--bleu); outline-offset: 2px; }
 
-/* ---------- Ligne en mode modification ---------- */
-form.edition { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+/* Élément terminé : titre barré et grisé, vignette pâlie */
+.carte.fait .carte-titre { text-decoration: line-through; color: var(--gris); }
+.carte.fait .vignette { opacity: 0.5; }
 
-form.edition input,
-form.edition select,
-form.edition button {
+/* Historique des supprimés : petite icône du type, titre, date */
+.carte.supprime { padding: 10px 12px; gap: 12px; }
+.carte.supprime .carte-titre { flex: 1; font-weight: 600; color: var(--gris); }
+.mini-vignette {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--texte);
+  color: var(--accent-survol);
+}
+.carte.supprime .date { font-size: 13px; color: var(--gris); flex-shrink: 0; }
+
+#message-vide { text-align: center; color: var(--gris); }
+
+/* ---------- Panneaux (Réglages en haut, actions en bas) ---------- */
+/* <dialog> : la fenêtre ; le voile sombre derrière = ::backdrop */
+.panneau {
+  width: 100%;
+  max-width: 600px;
+  max-height: 85vh;
+  padding: 0;
+  border: none;
+  background: var(--carte);
+  color: var(--texte);
+  overflow-y: auto;
+}
+.panneau::backdrop { background: var(--voile); }
+.panneau-contenu { padding: 12px 16px 16px; }
+
+/* Panneau Réglages : collé en haut, coins du bas arrondis */
+.panneau-haut { margin: 0 auto auto; border-radius: 0 0 var(--arrondi) var(--arrondi); }
+.panneau-haut .panneau-contenu { padding-top: calc(env(safe-area-inset-top) + 12px); }
+
+/* Panneau d'actions : collé en bas, coins du haut arrondis */
+.panneau-bas { margin: auto auto 0; border-radius: var(--arrondi) var(--arrondi) 0 0; }
+.panneau-bas .panneau-contenu { padding-bottom: calc(env(safe-area-inset-bottom) + 16px); }
+
+/* Animations d'ouverture : descend du haut / monte du bas, voile en fondu */
+.panneau-haut[open] { animation: descendre 260ms ease-out; }
+.panneau-bas[open] { animation: monter 240ms ease-out; }
+.panneau[open]::backdrop { animation: fondu 200ms ease-out; }
+@keyframes descendre { from { transform: translateY(-100%); } }
+@keyframes monter { from { transform: translateY(100%); } }
+@keyframes fondu { from { opacity: 0; } }
+
+/* En-tête du panneau Réglages : retour | titre | fermer */
+.panneau-entete {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+#reglages-retour { grid-column: 1; }
+#reglages-titre { grid-column: 2; margin: 0; text-align: center; font-size: 1.15rem; }
+#reglages-fermer { grid-column: 3; }
+
+/* Lignes du menu Réglages : 60 px, icône, titre, badge, flèche */
+.ligne-reglage {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 4px;
+  border: none;
+  border-bottom: 1px solid var(--bouton-bord);
+  background: none;
+  color: var(--texte);
+  font: inherit;
   font-size: 16px;
-  min-height: 44px;
-  padding: 10px;
+  text-align: left;
+}
+.ligne-reglage:last-child { border-bottom: none; }
+.ligne-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--fond);
+  color: var(--bleu);
+}
+.ligne-textes { display: flex; flex-direction: column; flex: 1; }
+.ligne-titre { font-weight: 600; }
+.ligne-sous-titre { font-size: 13px; color: var(--gris); }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 13px;
+  background: var(--bleu);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+}
+.chevron { width: 18px; height: 18px; color: var(--gris); }
+
+/* Listes dans le panneau blanc : cartes sur fond clair pour les distinguer */
+.panneau .carte { background: var(--fond); box-shadow: none; }
+.aide.vide { text-align: center; padding: 16px 0; }
+
+/* Panneau d'actions : titre de l'élément puis grands boutons */
+#actions-titre {
+  margin: 4px 0 14px;
+  text-align: center;
+  font-size: 1.05rem;
+  word-break: break-word;
+}
+.boutons-actions { display: flex; flex-direction: column; gap: 8px; }
+.bouton-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--fond);
+  color: var(--texte);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.bouton-action.supprimer { color: var(--rouge); }
+/* Premier appui sur « Supprimer » : rouge plein, il faut confirmer */
+.bouton-action.supprimer.confirmer { background: var(--rouge); color: white; }
+
+/* Modification dans le panneau : étiquette + champ */
+form.edition { display: flex; flex-direction: column; gap: 6px; }
+.etiquette { font-size: 13px; color: var(--gris); font-weight: 600; }
+form.edition input,
+form.edition select {
+  font-size: 16px; /* 16px minimum : sinon l'iPhone zoome dans le champ */
+  min-height: 48px;
+  padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--bouton-bord);
   background: var(--carte);
   color: var(--texte);
 }
+form.edition .boutons-actions { margin-top: 10px; }
 
-form.edition input { flex: 1 1 100%; }
-form.edition select { flex: 1; }
+/* ---------- Boutons : couleurs communes ---------- */
+/* Bouton principal (orange, texte marine) */
+#formulaire-ajout button,
+.bouton-action.principal,
+.boutons-fenetre #bouton-sauver-avant,
+.boutons-sauvegarde button[type="submit"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--texte);
+  font-weight: 700;
+}
 
 /* Boutons secondaires (Annuler) : bleu, texte blanc */
-button.secondaire {
+button.secondaire,
+.bouton-action.secondaire {
   background: var(--bleu);
   border-color: var(--bleu);
   color: white;
   font-weight: 600;
 }
 
-/* ---------- Lignes de la section "Supprimés" ---------- */
-li.supprime { color: var(--gris); }
-li.supprime .date { font-size: 13px; flex-shrink: 0; }
-
-#message-vide { text-align: center; color: var(--gris); }
-
-/* ---------- Sections repliables : titres en carte blanche ---------- */
-.section { margin-top: 24px; }
-
-.section summary {
-  list-style: none;       /* retire le triangle par défaut */
-  display: flex;
-  align-items: center;
-  min-height: 48px;
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--texte);
-  padding: 10px 14px;
-  background: var(--carte);
-  border: 1px solid var(--bouton-bord);
-  border-radius: var(--arrondi);
-  user-select: none;
-}
-.section summary::-webkit-details-marker { display: none; } /* idem sur iPhone */
-
-/* Notre propre flèche : ▸ fermé, qui tourne en ▾ quand c'est ouvert */
-.section summary::before {
-  content: "▸";
-  display: inline-block;
-  width: 1.2em;
-  color: var(--bleu);
-  transition: transform var(--duree) ease;
-}
-.section[open] summary::before { transform: rotate(90deg); }
-
-.section .liste { margin-top: 8px; }
-
 /* ---------- Retour visuel sur tous les boutons ---------- */
-/* Tout ce qui se touche : boutons, titres de section, cases à cocher */
 button,
+.bouton-action,
 .section summary,
 input[type="checkbox"] {
   cursor: pointer;                          /* main sur ordinateur */
@@ -224,6 +399,7 @@ input[type="checkbox"] {
 }
 
 button,
+.bouton-action,
 .section summary {
   transition:
     transform var(--duree) ease,
@@ -235,11 +411,11 @@ button,
 /* Survol à la souris (uniquement sur les appareils qui ont une souris) */
 @media (hover: hover) {
   button:hover,
+  .bouton-action:hover,
   .section summary:hover { filter: brightness(0.95); }
-  .icone:hover { color: var(--texte); border-color: var(--gris); }
   /* Boutons orange : orange plus clair au survol */
   #formulaire-ajout button:hover,
-  form.edition button[type="submit"]:hover,
+  .bouton-action.principal:hover,
   .boutons-fenetre #bouton-sauver-avant:hover,
   .boutons-sauvegarde button[type="submit"]:hover {
     background: var(--accent-survol);
@@ -248,15 +424,19 @@ button,
   }
 }
 
-/* Appui (doigt ou clic) : le bouton s'enfonce légèrement */
+/* Appui (doigt ou clic) : le bouton s'enfonce légèrement.
+   (Les cartes et les lignes de réglage ne rétrécissent pas : juste plus sombres.) */
 button:active,
+.bouton-action:active,
 .section summary:active {
   transform: scale(0.96);
   filter: brightness(0.9);
 }
+.carte-corps:active,
+.ligne-reglage:active { transform: none; filter: brightness(0.95); }
 /* Boutons orange appuyés : orange plus clair */
 #formulaire-ajout button:active,
-form.edition button[type="submit"]:active,
+.bouton-action.principal:active,
 .boutons-fenetre #bouton-sauver-avant:active,
 .boutons-sauvegarde button[type="submit"]:active {
   background: var(--accent-survol);
@@ -266,6 +446,7 @@ form.edition button[type="submit"]:active,
 
 /* Contour bien visible quand on navigue au clavier (touche Tab) */
 button:focus-visible,
+.bouton-action:focus-visible,
 .section summary:focus-visible,
 input:focus-visible,
 select:focus-visible,
@@ -274,14 +455,25 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
-/* ---------- Section "Sauvegarde" (exporter / importer) ---------- */
-.sauvegarde {
-  margin-top: 8px;
-  padding: 14px;
+/* ---------- Formulaire d'ajout (caché pour l'instant) ---------- */
+#formulaire-ajout { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+#formulaire-ajout input,
+#formulaire-ajout select,
+#formulaire-ajout button {
+  font-size: 16px;
+  min-height: 48px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--bouton-bord);
   background: var(--carte);
-  border-radius: var(--arrondi);
+  color: var(--texte);
 }
+#champ-titre { flex: 1 1 100%; }
+#champ-type { flex: 1; }
+
+/* ---------- Sauvegarde (dans le panneau Réglages) ---------- */
 .sauvegarde .aide { font-size: 14px; color: var(--gris); margin: 4px 0 12px; }
+.aide { color: var(--gris); }
 
 .boutons-sauvegarde { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -312,18 +504,18 @@ a:focus-visible {
   background: var(--carte);
   color: var(--texte);
 }
-#fenetre-import::backdrop { background: rgba(10, 35, 66, 0.55); }
+#fenetre-import::backdrop { background: var(--voile); }
 #fenetre-import h2 { margin: 0 0 12px; font-size: 1.3rem; }
 #conseil-sauvegarde, #info-sauvegarde-faite { font-size: 14px; color: var(--gris); }
 
 .boutons-fenetre { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 .boutons-fenetre .danger { background: var(--rouge); border-color: var(--rouge); color: white; }
 
-/* ---------- Section "Réglages" (clés TMDB et RAWG) ---------- */
+/* ---------- Clés TMDB et RAWG (cachées pour l'instant) ---------- */
 .champ-reglage {
   width: 100%;
   min-height: 48px;
-  font-size: 16px; /* 16px minimum : sinon l'iPhone zoome dans le champ */
+  font-size: 16px;
   padding: 12px;
   margin-bottom: 8px;
   border-radius: 12px;
@@ -331,11 +523,11 @@ a:focus-visible {
   background: var(--carte);
   color: var(--texte);
 }
+#formulaire-cle-rawg { margin-top: 16px; }
 
 /* ---------- Résultats de la recherche TMDB / RAWG ---------- */
 #etat-recherche { font-size: 14px; color: var(--gris); margin: 12px 0 8px; }
 .resultats { margin-top: 8px; }
-.resultats li { padding: 0; }
 
 /* Chaque résultat est un grand bouton : vignette + titre + type/année */
 .resultat {
@@ -347,41 +539,13 @@ a:focus-visible {
   padding: 8px 12px;
   border: none;
   border-radius: var(--arrondi);
-  background: none;
+  background: var(--carte);
   color: var(--texte);
   font-size: 16px;
   text-align: left;
 }
 .resultat .textes { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .resultat .details { font-size: 13px; color: var(--gris); }
-
-/* Petite affiche (ou emoji s'il n'y en a pas) */
-.vignette {
-  width: 40px;
-  height: 60px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  object-fit: cover;
-  background: var(--bouton-fond);
-}
-.vignette-vide {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-}
-
-/* ---------- Affiche et année dans la liste ---------- */
-.titre .details { display: block; font-size: 13px; color: var(--gris); margin-top: 2px; }
-li.fait .vignette { opacity: 0.5; } /* affiche grisée quand c'est terminé */
-
-/* Lien IMDb sous le titre, à côté de l'année (bleu marine, jamais orange) */
-.lien-imdb {
-  color: var(--texte);
-  font-weight: 600;
-  text-decoration: underline;
-  padding: 4px 0; /* zone d'appui un peu plus haute au doigt */
-}
 
 /* ---------- Mentions TMDB et RAWG en bas de page ---------- */
 .mentions {
@@ -393,19 +557,15 @@ li.fait .vignette { opacity: 0.5; } /* affiche grisée quand c'est terminé */
 .mentions img { display: inline-block; height: 16px; width: auto; }
 .mentions p { margin: 6px 0 0; }
 .mentions p a { color: inherit; text-decoration: underline; }
-/* Espace entre les deux formulaires de clé dans « Réglages » */
-#formulaire-cle-rawg { margin-top: 16px; }
-
-/* ---------- Numéro de version sous le logo ---------- */
-.version { font-size: 0.8rem; font-weight: 400; color: var(--gris); }
 
 /* ---------- « Réduire les animations » activé sur l'appareil ---------- */
 /* Réglages iPhone > Accessibilité > Mouvement : on coupe toutes les animations */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *, *::before, *::after, *::backdrop {
     transition-duration: 0ms !important;
     animation-duration: 0ms !important;
   }
   button:active,
+  .bouton-action:active,
   .section summary:active { transform: none; }
 }

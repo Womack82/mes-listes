@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // Nouvelle demande → numéro principal suivant (v11, v12…).
 // Correction ou modification d'une demande existante → sous-numéro (v10.1, v10.2…).
-const VERSION = "v13";
+const VERSION = "v14";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -47,13 +47,6 @@ let supprimes = charger(CLE_SUPPRIMES);
 // Le filtre actuellement choisi ("tous", "film", "serie", ...)
 let filtreActif = "tous";
 
-// L'élément en cours de modification (null = aucun)
-let idEnEdition = null;
-
-// L'élément dont le bouton affiche "Supprimer ?" (null = aucun)
-let idAConfirmer = null;
-let minuteurConfirmation = null;
-
 // On récupère les morceaux de la page dont on a besoin
 const formulaire = document.getElementById("formulaire-ajout");
 const champTitre = document.getElementById("champ-titre");
@@ -61,12 +54,39 @@ const champType = document.getElementById("champ-type");
 const liste = document.getElementById("liste");
 const messageVide = document.getElementById("message-vide");
 const boutonsFiltre = document.querySelectorAll("#filtres button");
-const sectionFaits = document.getElementById("section-faits");
+// Dans le panneau Réglages
 const listeFaits = document.getElementById("liste-faits");
-const compteurFaits = document.getElementById("compteur-faits");
-const sectionSupprimes = document.getElementById("section-supprimes");
+const badgeFaits = document.getElementById("badge-faits");
+const faitsVide = document.getElementById("faits-vide");
 const listeSupprimes = document.getElementById("liste-supprimes");
-const compteurSupprimes = document.getElementById("compteur-supprimes");
+const badgeSupprimes = document.getElementById("badge-supprimes");
+const supprimesVide = document.getElementById("supprimes-vide");
+
+// Nom du type affiché sous le titre des cartes
+const NOMS_SIMPLES = { film: "Film", serie: "Série", jeu: "Jeu", recette: "Recette", autre: "Autre" };
+
+// Icônes des types, dessinées en SVG (24 × 24) pour pouvoir les colorer :
+// clap de cinéma, télé, manette, toque, punaise
+const ICONES_TYPES = {
+  film: "M4 11h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z M4 11 3.4 8.1a1 1 0 0 1 .8-1.2l13.7-2.8a1 1 0 0 1 1.2.8l.5 2.6z M8.4 6.2l2.2 3.2 M13.2 5.2l2.2 3.2",
+  serie: "M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z M8 3l4 4 4-4",
+  jeu: "M7 8h10a5 5 0 0 1 5 5v1a3.5 3.5 0 0 1-6.3 2.1L14.5 15h-5l-1.2 1.1A3.5 3.5 0 0 1 2 14v-1a5 5 0 0 1 5-5z M7.5 10.5v4 M5.5 12.5h4 M16 11.5h.01 M18 13.5h.01",
+  recette: "M6 14a4 4 0 1 1 1.4-7.8 5 5 0 0 1 9.2 0A4 4 0 1 1 18 14v6H6z M6 17h12",
+  autre: "M9 3h6 M10 3v6l-3 4h10l-3-4V3 M12 13v8",
+};
+
+// Fabrique une icône SVG à partir d'un tracé (trait de la couleur du texte)
+function creerIcone(trace, classe = "icone-svg") {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", classe);
+  svg.setAttribute("aria-hidden", "true");
+  const chemin = document.createElementNS(ns, "path");
+  chemin.setAttribute("d", trace);
+  svg.append(chemin);
+  return svg;
+}
 
 // Garde l'élément s'il correspond au filtre choisi
 function correspondAuFiltre(el) {
@@ -74,7 +94,8 @@ function correspondAuFiltre(el) {
 }
 
 // --- 3. Afficher les listes ----------------------------------
-// On vide les trois listes puis on les remplit à nouveau.
+// Écran principal : seulement les éléments à faire (selon le filtre).
+// Panneau Réglages : tous les terminés et tous les supprimés (sans filtre).
 function afficher() {
   liste.innerHTML = "";
   listeFaits.innerHTML = "";
@@ -82,19 +103,19 @@ function afficher() {
 
   const visibles = elements.filter(correspondAuFiltre);
   const aFaire = visibles.filter((el) => !el.fait);
-  const faits = visibles.filter((el) => el.fait);
+  const faits = elements.filter((el) => el.fait);
   // Les supprimés, du plus récent au plus ancien
-  const supprimesVisibles = supprimes.filter(correspondAuFiltre).reverse();
+  const supprimesRecents = [...supprimes].reverse();
 
-  for (const el of aFaire) liste.append(creerLigne(el));
-  for (const el of faits) listeFaits.append(creerLigne(el));
-  for (const el of supprimesVisibles) listeSupprimes.append(creerLigneSupprimee(el));
+  for (const el of aFaire) liste.append(creerCarte(el));
+  for (const el of faits) listeFaits.append(creerCarte(el));
+  for (const el of supprimesRecents) listeSupprimes.append(creerLigneSupprimee(el));
 
-  // Chaque section n'apparaît que si elle contient au moins un élément
-  compteurFaits.textContent = faits.length;
-  sectionFaits.hidden = faits.length === 0;
-  compteurSupprimes.textContent = supprimesVisibles.length;
-  sectionSupprimes.hidden = supprimesVisibles.length === 0;
+  // Badges des lignes « Terminés » et « Supprimés » du panneau Réglages
+  badgeFaits.textContent = faits.length;
+  badgeSupprimes.textContent = supprimes.length;
+  faitsVide.hidden = faits.length > 0;
+  supprimesVide.hidden = supprimes.length > 0;
 
   // Message quand il ne reste rien à faire
   if (visibles.length === 0) {
@@ -105,128 +126,65 @@ function afficher() {
   messageVide.hidden = aFaire.length > 0;
 }
 
-// Fabrique la ligne <li> d'un élément :
-// case à cocher + titre + bouton ✏️ + bouton ✕
-function creerLigne(el) {
-  // Si cet élément est en cours de modification, on montre le formulaire
-  if (el.id === idEnEdition) return creerLigneEdition(el);
-
+// Fabrique la carte <li> d'un élément :
+// vignette + titre + type/année (un appui ouvre le panneau d'actions)
+// et à droite une case ronde pour cocher.
+function creerCarte(el) {
   const li = document.createElement("li");
+  li.className = "carte";
   if (el.fait) li.classList.add("fait");
 
-  // Case à cocher fait / à faire
+  // Toute la partie gauche est un bouton : il ouvre le panneau d'actions
+  const corps = document.createElement("button");
+  corps.type = "button";
+  corps.className = "carte-corps";
+  corps.addEventListener("click", () => ouvrirActions(el.id));
+
+  // Titre en gras (textContent empêche d'injecter du code HTML par erreur)
+  const titre = document.createElement("span");
+  titre.className = "carte-titre";
+  titre.textContent = el.titre;
+
+  // Ligne grise : type, et année si elle existe
+  const details = document.createElement("span");
+  details.className = "carte-details";
+  details.textContent = el.annee ? `${NOMS_SIMPLES[el.type]} · ${el.annee}` : NOMS_SIMPLES[el.type];
+
+  const textes = document.createElement("span");
+  textes.className = "carte-textes";
+  textes.append(titre, details);
+  corps.append(creerVignette(el.affiche, el.type), textes);
+
+  // Case ronde : une vraie case à cocher, cachée, et un rond dessiné à côté.
+  // Le <label> autour fait 44 px pour que le doigt ne la rate pas.
+  const zone = document.createElement("label");
+  zone.className = "case-ronde";
   const caseACocher = document.createElement("input");
   caseACocher.type = "checkbox";
   caseACocher.checked = el.fait;
+  caseACocher.setAttribute("aria-label", el.fait ? `Remettre à faire : ${el.titre}` : `Marquer comme terminé : ${el.titre}`);
   caseACocher.addEventListener("change", () => basculer(el.id));
+  const rond = document.createElement("span");
+  rond.className = "rond";
+  rond.append(creerIcone("M6 12.5l4 4 8-9", "coche"));
+  zone.append(caseACocher, rond);
 
-  // Titre (textContent empêche d'injecter du code HTML par erreur)
-  const titre = document.createElement("span");
-  titre.className = "titre";
-  // Élément venu de TMDB ou RAWG : vignette à gauche (affiche, ou emoji
-  // pour les jeux et les films sans affiche), année sous le titre.
-  // Sinon : emoji du type devant le titre, comme avant.
-  let vignette = null;
-  if (el.idTmdb || el.idRawg) {
-    vignette = creerVignette(el.affiche, el.type);
-    titre.textContent = el.titre;
-    // Ligne sous le titre : année, et lien IMDb pour les films et séries
-    if (el.annee || el.idImdb) {
-      const details = document.createElement("span");
-      details.className = "details";
-      if (el.annee) details.append(String(el.annee));
-      if (el.idImdb) {
-        if (el.annee) details.append(" · ");
-        const lien = document.createElement("a");
-        lien.className = "lien-imdb";
-        lien.href = `https://www.imdb.com/title/${el.idImdb}/`;
-        lien.target = "_blank"; // s'ouvre à côté, l'app reste ouverte
-        lien.rel = "noopener";
-        lien.textContent = "IMDb ↗";
-        details.append(lien);
-      }
-      titre.append(details);
-    }
-  } else {
-    titre.textContent = `${EMOJIS[el.type]} ${el.titre}`;
-  }
-
-  // Bouton modifier
-  const boutonModif = document.createElement("button");
-  boutonModif.className = "icone";
-  boutonModif.textContent = "✏️";
-  boutonModif.setAttribute("aria-label", "Modifier");
-  boutonModif.addEventListener("click", () => commencerEdition(el.id));
-
-  // Bouton supprimer : il faut appuyer deux fois (✕ puis "Supprimer ?")
-  const boutonSuppr = document.createElement("button");
-  boutonSuppr.className = "icone supprimer";
-  if (el.id === idAConfirmer) {
-    boutonSuppr.textContent = "Supprimer ?";
-    boutonSuppr.classList.add("confirmer");
-    boutonSuppr.addEventListener("click", () => supprimer(el.id));
-  } else {
-    boutonSuppr.textContent = "✕";
-    boutonSuppr.setAttribute("aria-label", "Supprimer");
-    boutonSuppr.addEventListener("click", () => demanderConfirmation(el.id));
-  }
-
-  li.append(caseACocher);
-  if (vignette) li.append(vignette);
-  li.append(titre, boutonModif, boutonSuppr);
+  li.append(corps, zone);
   return li;
 }
 
-// Fabrique la ligne en mode "modification" : champ titre + choix du type
-function creerLigneEdition(el) {
-  const li = document.createElement("li");
-
-  const form = document.createElement("form");
-  form.className = "edition";
-
-  const champ = document.createElement("input");
-  champ.type = "text";
-  champ.value = el.titre;
-  champ.required = true;
-
-  // On copie le menu déroulant du formulaire d'ajout pour avoir les mêmes types
-  const choixType = champType.cloneNode(true);
-  choixType.removeAttribute("id");
-  choixType.value = el.type;
-
-  const boutonOk = document.createElement("button");
-  boutonOk.type = "submit";
-  boutonOk.textContent = "Enregistrer";
-
-  const boutonAnnuler = document.createElement("button");
-  boutonAnnuler.type = "button";
-  boutonAnnuler.className = "secondaire";
-  boutonAnnuler.textContent = "Annuler";
-  boutonAnnuler.addEventListener("click", annulerEdition);
-
-  form.addEventListener("submit", (evenement) => {
-    evenement.preventDefault();
-    const nouveauTitre = champ.value.trim();
-    if (nouveauTitre === "") return;
-    modifier(el.id, nouveauTitre, choixType.value);
-  });
-
-  form.append(champ, choixType, boutonOk, boutonAnnuler);
-  li.append(form);
-
-  // Place le curseur dans le champ dès que la ligne est affichée
-  setTimeout(() => champ.focus(), 0);
-  return li;
-}
-
-// Fabrique une ligne de la section "Supprimés" (lecture seule, aucun bouton)
+// Fabrique une ligne de l'historique « Supprimés » (lecture seule, aucun bouton)
 function creerLigneSupprimee(el) {
   const li = document.createElement("li");
-  li.className = "supprime";
+  li.className = "carte supprime";
+
+  const icone = document.createElement("span");
+  icone.className = "mini-vignette";
+  icone.append(creerIcone(ICONES_TYPES[el.type]));
 
   const titre = document.createElement("span");
-  titre.className = "titre";
-  titre.textContent = `${EMOJIS[el.type]} ${el.titre}`;
+  titre.className = "carte-titre";
+  titre.textContent = el.titre;
 
   const date = document.createElement("span");
   date.className = "date";
@@ -236,7 +194,7 @@ function creerLigneSupprimee(el) {
     year: "numeric",
   });
 
-  li.append(titre, date);
+  li.append(icone, titre, date);
   return li;
 }
 
@@ -280,17 +238,6 @@ function basculer(id) {
   afficher();
 }
 
-function commencerEdition(id) {
-  idEnEdition = id;
-  idAConfirmer = null;
-  afficher();
-}
-
-function annulerEdition() {
-  idEnEdition = null;
-  afficher();
-}
-
 function modifier(id, titre, type) {
   const el = elements.find((e) => e.id === id);
   // Si le type change, les infos TMDB / RAWG ne correspondent plus
@@ -298,23 +245,11 @@ function modifier(id, titre, type) {
   if (type !== el.type) retirerInfosExternes(el);
   el.titre = titre;
   el.type = type;
-  idEnEdition = null;
   sauvegarder();
   afficher();
 }
 
-// Premier appui sur ✕ : le bouton devient "Supprimer ?" pendant 3 secondes
-function demanderConfirmation(id) {
-  idAConfirmer = id;
-  clearTimeout(minuteurConfirmation);
-  minuteurConfirmation = setTimeout(() => {
-    idAConfirmer = null;
-    afficher();
-  }, 3000);
-  afficher();
-}
-
-// Deuxième appui : l'élément part dans "Supprimés".
+// L'élément part dans "Supprimés".
 // On n'y garde que titre, type et date : l'affiche, l'année et
 // les identifiants TMDB / IMDb / RAWG sont perdus.
 function supprimer(id) {
@@ -325,11 +260,141 @@ function supprimer(id) {
     dateSuppression: new Date().toISOString(),
   });
   elements = elements.filter((e) => e.id !== id);
-  idAConfirmer = null;
-  clearTimeout(minuteurConfirmation);
   sauvegarder();
   afficher();
 }
+
+// --- 4 bis. Le panneau d'actions (monte du bas de l'écran) ---
+// S'ouvre quand on touche une carte : Voir sur IMDb, Modifier, Supprimer.
+const panneauActions = document.getElementById("panneau-actions");
+const actionsTitre = document.getElementById("actions-titre");
+const actionsBoutons = document.getElementById("actions-boutons");
+const actionsImdb = document.getElementById("actions-imdb");
+const actionsModifier = document.getElementById("actions-modifier");
+const actionsSupprimer = document.getElementById("actions-supprimer");
+const actionsEdition = document.getElementById("actions-edition");
+const editionTitre = document.getElementById("edition-titre");
+const editionType = document.getElementById("edition-type");
+
+// L'élément concerné par le panneau (null = panneau fermé)
+let idActions = null;
+let minuteurConfirmation = null;
+
+// Le menu des types du panneau = copie de celui du formulaire d'ajout
+for (const option of champType.options) editionType.append(option.cloneNode(true));
+
+// Remet le bouton « Supprimer » dans son état normal
+function annulerConfirmation() {
+  clearTimeout(minuteurConfirmation);
+  actionsSupprimer.textContent = "Supprimer";
+  actionsSupprimer.classList.remove("confirmer");
+}
+
+function ouvrirActions(id) {
+  const el = elements.find((e) => e.id === id);
+  if (!el) return;
+  idActions = id;
+  actionsTitre.textContent = el.titre;
+  // Lien IMDb seulement pour les films et séries qui en ont un
+  actionsImdb.hidden = !el.idImdb;
+  if (el.idImdb) actionsImdb.href = `https://www.imdb.com/title/${el.idImdb}/`;
+  annulerConfirmation();
+  actionsBoutons.hidden = false;
+  actionsEdition.hidden = true;
+  panneauActions.showModal();
+}
+
+function fermerActions() {
+  annulerConfirmation();
+  idActions = null;
+  panneauActions.close();
+}
+
+// « Modifier » : le titre et le type se changent dans le panneau
+actionsModifier.addEventListener("click", () => {
+  const el = elements.find((e) => e.id === idActions);
+  if (!el) return;
+  annulerConfirmation();
+  editionTitre.value = el.titre;
+  editionType.value = el.type;
+  actionsBoutons.hidden = true;
+  actionsEdition.hidden = false;
+  editionTitre.focus();
+});
+
+actionsEdition.addEventListener("submit", (evenement) => {
+  evenement.preventDefault();
+  const nouveauTitre = editionTitre.value.trim();
+  if (nouveauTitre === "" || idActions === null) return;
+  modifier(idActions, nouveauTitre, editionType.value);
+  fermerActions();
+});
+
+document.getElementById("edition-annuler").addEventListener("click", () => {
+  actionsEdition.hidden = true;
+  actionsBoutons.hidden = false;
+});
+
+// « Supprimer » : premier appui → « Confirmer la suppression ? » pendant
+// 3 secondes ; deuxième appui → l'élément part dans « Supprimés »
+actionsSupprimer.addEventListener("click", () => {
+  if (idActions === null) return;
+  if (actionsSupprimer.classList.contains("confirmer")) {
+    supprimer(idActions);
+    fermerActions();
+    return;
+  }
+  actionsSupprimer.textContent = "Confirmer la suppression ?";
+  actionsSupprimer.classList.add("confirmer");
+  minuteurConfirmation = setTimeout(annulerConfirmation, 3000);
+});
+
+document.getElementById("actions-annuler").addEventListener("click", fermerActions);
+// Échap (clavier) ferme aussi le panneau : on remet tout à zéro
+panneauActions.addEventListener("close", () => {
+  annulerConfirmation();
+  idActions = null;
+});
+
+// Un appui sur le voile sombre (autour du panneau) ferme le panneau.
+// Le contenu est dans un <div> intérieur : un clic qui vise le <dialog>
+// lui-même est donc forcément un clic sur le voile.
+function fermerSurVoile(panneau, fermer) {
+  panneau.addEventListener("click", (evenement) => {
+    if (evenement.target === panneau) fermer();
+  });
+}
+fermerSurVoile(panneauActions, fermerActions);
+
+// --- 4 ter. Le panneau Réglages (descend du haut de l'écran) ---
+const panneauReglages = document.getElementById("panneau-reglages");
+const reglagesTitre = document.getElementById("reglages-titre");
+const reglagesRetour = document.getElementById("reglages-retour");
+const VUES = {
+  menu: { titre: "Réglages", bloc: document.getElementById("vue-menu") },
+  faits: { titre: "Terminés", bloc: document.getElementById("vue-faits") },
+  supprimes: { titre: "Supprimés", bloc: document.getElementById("vue-supprimes") },
+  sauvegarde: { titre: "Sauvegarde", bloc: document.getElementById("vue-sauvegarde") },
+};
+
+// Montre une seule vue du panneau ; la flèche de retour hors du menu
+function afficherVue(nom) {
+  for (const [cle, vue] of Object.entries(VUES)) vue.bloc.hidden = cle !== nom;
+  reglagesTitre.textContent = VUES[nom].titre;
+  reglagesRetour.hidden = nom === "menu";
+}
+
+document.getElementById("bouton-reglages").addEventListener("click", () => {
+  afficherVue("menu");
+  panneauReglages.showModal();
+});
+for (const ligne of document.querySelectorAll(".ligne-reglage")) {
+  ligne.addEventListener("click", () => afficherVue(ligne.dataset.vue));
+}
+reglagesRetour.addEventListener("click", () => afficherVue("menu"));
+const fermerReglages = () => panneauReglages.close();
+document.getElementById("reglages-fermer").addEventListener("click", fermerReglages);
+fermerSurVoile(panneauReglages, fermerReglages);
 
 // --- 5. Réagir aux actions de l'utilisateur ------------------
 formulaire.addEventListener("submit", (evenement) => {
@@ -344,8 +409,10 @@ formulaire.addEventListener("submit", (evenement) => {
 for (const bouton of boutonsFiltre) {
   bouton.addEventListener("click", () => {
     filtreActif = bouton.dataset.type;
-    boutonsFiltre.forEach((b) => b.classList.remove("actif"));
-    bouton.classList.add("actif");
+    boutonsFiltre.forEach((b) => {
+      b.classList.toggle("actif", b === bouton);
+      b.setAttribute("aria-pressed", b === bouton); // annoncé aux lecteurs d'écran
+    });
     afficher();
   });
 }
@@ -568,8 +635,6 @@ function remplacerListe() {
     afficherMessage("Impossible d'enregistrer la nouvelle liste (mémoire pleine ?). Rien n'a été modifié.", false);
     return;
   }
-  idEnEdition = null;
-  idAConfirmer = null;
   fenetreImport.close();
   afficher();
   afficherMessage(`Import réussi : ${resumer(elements, supprimes)}.`, true);
@@ -742,8 +807,9 @@ async function completerImdb(el) {
   if (!actuel) return;
   actuel.idImdb = idImdb;
   sauvegarder();
-  // Pas de réaffichage pendant une modification : ça effacerait ce qui est tapé
-  if (idEnEdition === null) afficher();
+  // (la modification se fait dans le panneau d'actions : réafficher la liste
+  // n'efface rien de ce qui est en train d'être tapé)
+  afficher();
 }
 
 // Complète, un par un, les films et séries TMDB qui n'ont pas encore de lien IMDb
@@ -847,20 +913,21 @@ function sourcePourType(type) {
 
 const NOMS_TYPES = { film: "🎬 Film", serie: "📺 Série", jeu: "🎮 Jeu" };
 
-// Fabrique la petite image d'un élément : l'affiche, ou l'emoji du type
-// s'il n'y a pas d'affiche ou si elle ne se charge pas (hors ligne)
+// Fabrique la vignette d'un élément : l'affiche, ou un carré bleu marine
+// avec l'icône orange du type s'il n'y a pas d'affiche ou si elle ne se
+// charge pas (hors ligne)
 function creerVignette(affiche, type) {
-  const emoji = document.createElement("span");
-  emoji.className = "vignette vignette-vide";
-  emoji.textContent = EMOJIS[type];
-  if (!affiche) return emoji;
+  const vide = document.createElement("span");
+  vide.className = "vignette vignette-vide";
+  vide.append(creerIcone(ICONES_TYPES[type]));
+  if (!affiche) return vide;
 
   const image = document.createElement("img");
   image.className = "vignette";
   image.src = affiche;
   image.alt = "";
   image.loading = "lazy";
-  image.addEventListener("error", () => image.replaceWith(emoji));
+  image.addEventListener("error", () => image.replaceWith(vide));
   return image;
 }
 

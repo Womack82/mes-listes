@@ -20,19 +20,31 @@
 </head>
 <body>
   <main>
-    <!-- Logo W dessiné en SVG (trois branches mesurées sur l'image d'origine).
-         Le texte « Mes listes » reste lu par les lecteurs d'écran. -->
-    <h1 class="entete">
-      <svg class="logo" viewBox="59 79 605 297" role="img" aria-label="Mes listes">
-        <polygon points="59,79 175,79 327,290 268,376"/>
-        <polygon points="250,79 367,79 517,290 458,376"/>
-        <polygon points="555,79 664,79 534,267 480,189"/>
-      </svg>
-      <span id="version" class="version"></span>
-    </h1>
+    <!-- En-tête : bouton Réglages à gauche, logo W au centre, rien à droite -->
+    <header class="entete">
+      <button type="button" id="bouton-reglages" class="bouton-rond" aria-label="Réglages">
+        <!-- Roue dentée -->
+        <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+      <!-- Logo W dessiné en SVG (trois branches mesurées sur l'image d'origine).
+           Le texte « Mes listes » reste lu par les lecteurs d'écran. -->
+      <h1 class="titre-app">
+        <svg class="logo" viewBox="59 79 605 297" role="img" aria-label="Mes listes">
+          <polygon points="59,79 175,79 327,290 268,376"/>
+          <polygon points="250,79 367,79 517,290 458,376"/>
+          <polygon points="555,79 664,79 534,267 480,189"/>
+        </svg>
+        <span id="version" class="version"></span>
+      </h1>
+      <span aria-hidden="true"></span> <!-- case vide à droite, pour garder le logo au centre -->
+    </header>
 
-    <!-- Formulaire pour ajouter un élément -->
-    <form id="formulaire-ajout">
+    <!-- Formulaire d'ajout : caché en attendant le nouveau formulaire.
+         Il reste dans la page car la recherche TMDB / RAWG s'appuie dessus. -->
+    <form id="formulaire-ajout" hidden>
       <input id="champ-titre" type="text" placeholder="Titre (ex : Inception)" required>
       <select id="champ-type">
         <option value="film">🎬 Film</option>
@@ -48,55 +60,22 @@
     <p id="etat-recherche" class="aide" hidden></p>
     <ul id="resultats-recherche" class="liste resultats" hidden></ul>
 
-    <!-- Boutons de filtre : data-type indique quel type afficher -->
-    <nav id="filtres">
-      <button data-type="tous" class="actif">Tous</button>
-      <button data-type="film">🎬 Films</button>
-      <button data-type="serie">📺 Séries</button>
-      <button data-type="jeu">🎮 Jeux</button>
-      <button data-type="recette">🍳 Recettes</button>
-      <button data-type="autre">📌 Autres</button>
+    <!-- Filtres par type, sur deux lignes de trois. data-type indique quel type afficher -->
+    <nav id="filtres" aria-label="Filtrer par type">
+      <button type="button" data-type="tous" class="actif" aria-pressed="true">Tous</button>
+      <button type="button" data-type="film" aria-pressed="false">🎬 Films</button>
+      <button type="button" data-type="serie" aria-pressed="false">📺 Séries</button>
+      <button type="button" data-type="jeu" aria-pressed="false">🎮 Jeux</button>
+      <button type="button" data-type="recette" aria-pressed="false">🍳 Recettes</button>
+      <button type="button" data-type="autre" aria-pressed="false">📌 Autres</button>
     </nav>
 
     <!-- La liste des éléments à faire, remplie par app.js -->
     <ul id="liste" class="liste"></ul>
     <p id="message-vide" hidden></p>
 
-    <!-- Section des éléments terminés.
-         <details> est une balise HTML qui s'ouvre/se ferme toute seule
-         quand on touche son titre <summary>. -->
-    <details id="section-faits" class="section" hidden>
-      <summary>Terminés (<span id="compteur-faits">0</span>)</summary>
-      <ul id="liste-faits" class="liste"></ul>
-    </details>
-
-    <!-- Section des éléments supprimés (lecture seule) -->
-    <details id="section-supprimes" class="section" hidden>
-      <summary>Supprimés (<span id="compteur-supprimes">0</span>)</summary>
-      <ul id="liste-supprimes" class="liste"></ul>
-    </details>
-
-    <!-- Section sauvegarde : exporter / importer toute la liste -->
-    <details id="section-sauvegarde" class="section">
-      <summary>Sauvegarde</summary>
-      <div class="sauvegarde">
-        <p class="aide">
-          Exporter crée un fichier avec tous tes éléments (à faire, terminés, supprimés).
-          Importer remplace toute la liste par celle d'un fichier exporté.
-        </p>
-        <div class="boutons-sauvegarde">
-          <button type="button" id="bouton-exporter">📤 Exporter</button>
-          <button type="button" id="bouton-importer">📥 Importer</button>
-        </div>
-        <!-- Sélecteur de fichier caché : le bouton "Importer" l'ouvre -->
-        <input type="file" id="champ-fichier" accept=".json,application/json" hidden>
-        <!-- Message de réussite ou d'erreur -->
-        <p id="message-sauvegarde" class="message" role="status" hidden></p>
-      </div>
-    </details>
-
-    <!-- Section réglages : les clés TMDB (films, séries) et RAWG (jeux) -->
-    <details id="section-reglages" class="section">
+    <!-- Clés TMDB et RAWG : cachées en attendant la ligne « Clés API » des Réglages -->
+    <details id="section-reglages" class="section" hidden>
       <summary>Réglages</summary>
       <form id="formulaire-cle" class="sauvegarde">
         <p class="aide">
@@ -143,6 +122,98 @@
         <a href="https://rawg.io/" target="_blank" rel="noopener">RAWG</a>.</p>
     </footer>
   </main>
+
+  <!-- Panneau Réglages : descend du haut, sur un voile sombre.
+       <dialog> est une balise HTML pour les fenêtres par-dessus la page. -->
+  <dialog id="panneau-reglages" class="panneau panneau-haut" aria-labelledby="reglages-titre">
+    <div class="panneau-contenu">
+      <div class="panneau-entete">
+        <button type="button" id="reglages-retour" class="bouton-rond" aria-label="Retour" hidden>
+          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <h2 id="reglages-titre">Réglages</h2>
+        <button type="button" id="reglages-fermer" class="bouton-rond" aria-label="Fermer">
+          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <!-- Menu : une ligne par rubrique -->
+      <div id="vue-menu">
+        <button type="button" class="ligne-reglage" data-vue="faits">
+          <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg></span>
+          <span class="ligne-textes"><span class="ligne-titre">Terminés</span></span>
+          <span id="badge-faits" class="badge">0</span>
+          <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <button type="button" class="ligne-reglage" data-vue="supprimes">
+          <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></span>
+          <span class="ligne-textes"><span class="ligne-titre">Supprimés</span></span>
+          <span id="badge-supprimes" class="badge">0</span>
+          <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <button type="button" class="ligne-reglage" data-vue="sauvegarde">
+          <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span>
+          <span class="ligne-textes">
+            <span class="ligne-titre">Sauvegarde</span>
+            <span class="ligne-sous-titre">Exporter ou importer ma liste</span>
+          </span>
+          <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+
+      <!-- Terminés : cartes cochées (décocher = remettre à faire) -->
+      <div id="vue-faits" hidden>
+        <ul id="liste-faits" class="liste"></ul>
+        <p id="faits-vide" class="aide vide">Aucun élément terminé.</p>
+      </div>
+
+      <!-- Supprimés : historique en lecture seule, le plus récent en haut -->
+      <div id="vue-supprimes" hidden>
+        <ul id="liste-supprimes" class="liste"></ul>
+        <p id="supprimes-vide" class="aide vide">Aucun élément supprimé.</p>
+      </div>
+
+      <!-- Sauvegarde : exporter / importer toute la liste -->
+      <div id="vue-sauvegarde" class="sauvegarde" hidden>
+        <p class="aide">
+          Exporter crée un fichier avec tous tes éléments (à faire, terminés, supprimés).
+          Importer remplace toute la liste par celle d'un fichier exporté.
+        </p>
+        <div class="boutons-sauvegarde">
+          <button type="button" id="bouton-exporter">📤 Exporter</button>
+          <button type="button" id="bouton-importer">📥 Importer</button>
+        </div>
+        <!-- Sélecteur de fichier caché : le bouton "Importer" l'ouvre -->
+        <input type="file" id="champ-fichier" accept=".json,application/json" hidden>
+        <!-- Message de réussite ou d'erreur -->
+        <p id="message-sauvegarde" class="message" role="status" hidden></p>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Panneau d'actions : monte du bas quand on touche une carte -->
+  <dialog id="panneau-actions" class="panneau panneau-bas" aria-labelledby="actions-titre">
+    <div class="panneau-contenu">
+      <h2 id="actions-titre"></h2>
+      <div id="actions-boutons" class="boutons-actions">
+        <a id="actions-imdb" class="bouton-action" target="_blank" rel="noopener" hidden>Voir sur IMDb ↗</a>
+        <button type="button" id="actions-modifier" class="bouton-action">Modifier</button>
+        <button type="button" id="actions-supprimer" class="bouton-action supprimer">Supprimer</button>
+        <button type="button" id="actions-annuler" class="bouton-action secondaire">Annuler</button>
+      </div>
+      <!-- Modification : le titre et le type se changent ici -->
+      <form id="actions-edition" class="edition" hidden>
+        <label for="edition-titre" class="etiquette">Titre</label>
+        <input id="edition-titre" type="text" required>
+        <label for="edition-type" class="etiquette">Type</label>
+        <select id="edition-type"></select>
+        <div class="boutons-actions">
+          <button type="submit" class="bouton-action principal">Enregistrer</button>
+          <button type="button" id="edition-annuler" class="bouton-action secondaire">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
 
   <!-- Fenêtre de confirmation avant de remplacer la liste.
        <dialog> est une balise HTML pour les fenêtres par-dessus la page. -->
