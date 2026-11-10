@@ -324,6 +324,14 @@ select:focus-visible {
 .titre .details { display: block; font-size: 13px; color: var(--gris); margin-top: 2px; }
 li.fait .vignette { opacity: 0.5; } /* affiche grisée quand c'est terminé */
 
+/* Lien IMDb sous le titre, à côté de l'année */
+.lien-imdb {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  padding: 4px 0; /* zone d'appui un peu plus haute au doigt */
+}
+
 /* ---------- Mentions TMDB et RAWG en bas de page ---------- */
 .mentions {
   margin-top: 32px;

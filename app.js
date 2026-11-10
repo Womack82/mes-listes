@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // Nouvelle demande → numéro principal suivant (v11, v12…).
 // Correction ou modification d'une demande existante → sous-numéro (v10.1, v10.2…).
-const VERSION = "v11";
+const VERSION = "v12";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -130,11 +130,22 @@ function creerLigne(el) {
   if (el.idTmdb || el.idRawg) {
     vignette = creerVignette(el.affiche, el.type);
     titre.textContent = el.titre;
-    if (el.annee) {
-      const annee = document.createElement("span");
-      annee.className = "details";
-      annee.textContent = el.annee;
-      titre.append(annee);
+    // Ligne sous le titre : année, et lien IMDb pour les films et séries
+    if (el.annee || el.idImdb) {
+      const details = document.createElement("span");
+      details.className = "details";
+      if (el.annee) details.append(String(el.annee));
+      if (el.idImdb) {
+        if (el.annee) details.append(" · ");
+        const lien = document.createElement("a");
+        lien.className = "lien-imdb";
+        lien.href = `https://www.imdb.com/title/${el.idImdb}/`;
+        lien.target = "_blank"; // s'ouvre à côté, l'app reste ouverte
+        lien.rel = "noopener";
+        lien.textContent = "IMDb ↗";
+        details.append(lien);
+      }
+      titre.append(details);
     }
   } else {
     titre.textContent = `${EMOJIS[el.type]} ${el.titre}`;
@@ -231,7 +242,7 @@ function creerLigneSupprimee(el) {
 
 // --- 4. Les actions ------------------------------------------
 // infos (facultatif) : quand le titre a été choisi dans une recherche
-// - TMDB (films, séries) : { annee, affiche, idTmdb }
+// - TMDB (films, séries) : { annee, affiche, idTmdb } (+ idImdb, cherché juste après)
 // - RAWG (jeux)          : { annee, idRawg } (pas de jaquette, volontairement)
 function ajouter(titre, type, infos = null) {
   const el = {
@@ -249,6 +260,8 @@ function ajouter(titre, type, infos = null) {
   elements.push(el);
   sauvegarder();
   afficher();
+  // Film ou série venu de TMDB : on va chercher son identifiant IMDb
+  if (el.idTmdb) completerImdb(el);
 }
 
 // Retire les informations venues de TMDB ou RAWG (affiche, année, identifiants)
@@ -256,6 +269,7 @@ function retirerInfosExternes(el) {
   delete el.annee;
   delete el.affiche;
   delete el.idTmdb;
+  delete el.idImdb;
   delete el.idRawg;
 }
 
@@ -302,7 +316,7 @@ function demanderConfirmation(id) {
 
 // Deuxième appui : l'élément part dans "Supprimés".
 // On n'y garde que titre, type et date : l'affiche, l'année et
-// les identifiants TMDB / RAWG sont perdus.
+// les identifiants TMDB / IMDb / RAWG sont perdus.
 function supprimer(id) {
   const el = elements.find((e) => e.id === id);
   supprimes.push({
@@ -342,8 +356,9 @@ for (const bouton of boutonsFiltre) {
 const FORMAT_NOM = "mes-listes";
 // Version 1 : titre, type, fait. Version 2 : + année, affiche, identifiant TMDB
 // (facultatifs). Version 3 : + identifiant RAWG pour les jeux (facultatif).
-// L'app sait lire les trois.
-const FORMAT_VERSION = 3;
+// Version 4 : + identifiant IMDb pour les films et séries (facultatif).
+// L'app sait lire les quatre.
+const FORMAT_VERSION = 4;
 
 const boutonExporter = document.getElementById("bouton-exporter");
 const boutonImporter = document.getElementById("bouton-importer");
@@ -458,6 +473,13 @@ function verifierFichier(donnees) {
       if (el.type !== "film" && el.type !== "serie") throw new Error(`${numero} a un identifiant TMDB mais n'est ni un film ni une série.`);
       propre.idTmdb = el.idTmdb;
     }
+    // Identifiant IMDb (version 4, facultatif) : "tt" suivi de chiffres,
+    // seulement pour un film ou une série venu de TMDB
+    if (el.idImdb !== undefined) {
+      if (typeof el.idImdb !== "string" || !/^tt\d{1,12}$/.test(el.idImdb)) throw new Error(`${numero} a un identifiant IMDb invalide.`);
+      if (el.idTmdb === undefined) throw new Error(`${numero} a un identifiant IMDb mais pas d'identifiant TMDB.`);
+      propre.idImdb = el.idImdb;
+    }
     // Infos RAWG (version 3, facultatives) : seulement pour les jeux, sans jaquette
     if (el.idRawg !== undefined) {
       if (!Number.isInteger(el.idRawg) || el.idRawg <= 0) throw new Error(`${numero} a un identifiant RAWG invalide.`);
@@ -551,6 +573,7 @@ function remplacerListe() {
   fenetreImport.close();
   afficher();
   afficherMessage(`Import réussi : ${resumer(elements, supprimes)}.`, true);
+  completerImdbManquants(); // un ancien fichier n'a pas encore les liens IMDb
 }
 
 boutonExporter.addEventListener("click", async () => {
@@ -689,6 +712,52 @@ function brancherCle(nom, nomStockage, prefixe, verifier) {
 brancherCle("TMDB", CLE_TMDB, "cle", (cle) => appelerTmdb("/authentication", {}, cle));
 // RAWG n'a pas d'adresse pour tester une clé : on fait une mini-recherche
 brancherCle("RAWG", CLE_RAWG, "cle-rawg", (cle) => appelerRawg("/games", { page_size: 1 }, cle));
+
+// --- 7 bis. Les liens IMDb des films et séries ----------------
+// La recherche TMDB ne donne pas l'identifiant IMDb (ex : "tt1375666").
+// On le demande à TMDB à part, une fois, puis on le garde avec l'élément.
+
+// Éléments pour lesquels TMDB a déjà répondu pendant cette ouverture de l'app
+// (même sans identifiant IMDb) : on ne redemande pas à chaque fois.
+const imdbDejaDemandes = new Set();
+let completionEnCours = false;
+
+async function completerImdb(el) {
+  const { id, idTmdb, type } = el;
+  if (lireCleTmdb() === "" || !navigator.onLine) return;
+  const chemin = `/${type === "film" ? "movie" : "tv"}/${idTmdb}/external_ids`;
+  let donnees;
+  try {
+    donnees = await appelerTmdb(chemin);
+  } catch {
+    return; // pas de connexion ou clé refusée : on réessaiera plus tard
+  }
+  imdbDejaDemandes.add(id);
+  const idImdb = donnees.imdb_id;
+  if (typeof idImdb !== "string" || !/^tt\d{1,12}$/.test(idImdb)) return; // pas sur IMDb
+
+  // Pendant l'attente, l'élément a pu être supprimé, changé de type ou
+  // remplacé par un import : on vérifie qu'il est toujours là, identique
+  const actuel = elements.find((e) => e.id === id && e.idTmdb === idTmdb);
+  if (!actuel) return;
+  actuel.idImdb = idImdb;
+  sauvegarder();
+  // Pas de réaffichage pendant une modification : ça effacerait ce qui est tapé
+  if (idEnEdition === null) afficher();
+}
+
+// Complète, un par un, les films et séries TMDB qui n'ont pas encore de lien IMDb
+// (ceux ajoutés avant la v12, ou ajoutés hors ligne)
+async function completerImdbManquants() {
+  if (completionEnCours) return;
+  completionEnCours = true;
+  try {
+    const manquants = elements.filter((e) => e.idTmdb && !e.idImdb && !imdbDejaDemandes.has(e.id));
+    for (const el of manquants) await completerImdb(el);
+  } finally {
+    completionEnCours = false;
+  }
+}
 
 // --- 8. La recherche : films et séries (TMDB), jeux (RAWG) ----
 const etatRecherche = document.getElementById("etat-recherche");
@@ -885,6 +954,9 @@ champType.addEventListener("change", programmerRecherche);
 localStorage.removeItem("mes-listes-section-ouverte"); // ancien réglage, devenu inutile
 document.getElementById("version").textContent = VERSION;
 afficher();
+completerImdbManquants();
+// Revenu en ligne (métro, avion…) : on complète ce qui manque encore
+window.addEventListener("online", completerImdbManquants);
 
 // Enregistre le service worker (permet le fonctionnement hors ligne)
 if ("serviceWorker" in navigator) {
