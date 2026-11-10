@@ -5,7 +5,6 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 
 ## À faire
 
-- [ ] Nouveau formulaire d'ajout (l'ancien est caché depuis la v14 ; la recherche TMDB / RAWG s'appuie encore dessus)
 - [ ] Ligne « Clés API » dans le panneau Réglages (les clés TMDB et RAWG sont cachées depuis la v14)
 - [ ] Trier la liste (à faire d'abord, ordre alphabétique…)
 - [ ] Ajouter une note à chaque élément (« recommandé par… », note sur 5)
@@ -32,3 +31,4 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 - [x] v12 — Lien « IMDb ↗ » sous le titre des films et séries venus de TMDB (ouvre la fiche exacte) : l'identifiant IMDb est demandé à TMDB à l'ajout et stocké avec l'élément ; les éléments déjà dans la liste sont complétés automatiquement quand l'app est en ligne ; pas de lien pour les éléments ajoutés à la main ; fichier de sauvegarde en version 4 (lit toujours les versions 1 à 3)
 - [x] v13 — Nouvelle apparence : palette fond #e9eef5, texte marine #0a2342, accent orange #ff6a00 (texte marine dessus), bleu #2c6e9a (texte blanc dessus) ; cartes blanches arrondies (16 px) ; zones à toucher d'au moins 44 px ; animations de 180 ms coupées si « réduire les animations » est activé ; mode sombre retiré ; logo W en SVG à la place du titre ; nouvelle icône (W clair sur carré marine)
 - [x] v14 — Nouvel écran principal : en-tête avec bouton Réglages (roue dans un cercle blanc) et logo W centré ; filtres sur deux lignes de trois (36 px, zone d'appui 44 px) ; liste des seuls éléments à faire en cartes (vignette 48 × 68 avec icône orange du type si pas d'affiche, titre en gras, type et année, case ronde) ; un appui sur une carte ouvre un panneau du bas (Voir sur IMDb, Modifier dans le panneau, Supprimer avec confirmation, Annuler) ; panneau Réglages qui descend du haut : Terminés (badge), Supprimés (badge, historique en lecture seule), Sauvegarde ; formulaire d'ajout et clés API cachés en attendant la suite
+- [x] v15 — Nouveau formulaire d'ajout : bouton + orange flottant (60 px, en bas à droite) qui ouvre un calque montant du bas (poignée, titre « Ajouter », fermeture) ; 5 tuiles de catégorie avec icône (Film par défaut) ; champ titre de 56 px avec focus à l'ouverture et texte indicatif selon la catégorie ; bouton « Ajouter à ma liste » toujours visible, même clavier ouvert (mesure de la partie visible de l'écran) ; recherche TMDB / RAWG avec affiches branchée sous le champ ; le calque se ferme après l'ajout

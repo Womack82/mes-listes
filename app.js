@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // Nouvelle demande → numéro principal suivant (v11, v12…).
 // Correction ou modification d'une demande existante → sous-numéro (v10.1, v10.2…).
-const VERSION = "v14";
+const VERSION = "v15";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -48,9 +48,10 @@ let supprimes = charger(CLE_SUPPRIMES);
 let filtreActif = "tous";
 
 // On récupère les morceaux de la page dont on a besoin
+// Le calque « Ajouter » : formulaire, champ titre, tuiles de catégorie
 const formulaire = document.getElementById("formulaire-ajout");
 const champTitre = document.getElementById("champ-titre");
-const champType = document.getElementById("champ-type");
+const choixCategorie = document.getElementById("choix-categorie");
 const liste = document.getElementById("liste");
 const messageVide = document.getElementById("message-vide");
 const boutonsFiltre = document.querySelectorAll("#filtres button");
@@ -280,8 +281,10 @@ const editionType = document.getElementById("edition-type");
 let idActions = null;
 let minuteurConfirmation = null;
 
-// Le menu des types du panneau = copie de celui du formulaire d'ajout
-for (const option of champType.options) editionType.append(option.cloneNode(true));
+// Le menu des types du panneau : « 🎬 Film », « 📺 Série »…
+for (const type of Object.keys(NOMS_SIMPLES)) {
+  editionType.append(new Option(`${EMOJIS[type]} ${NOMS_SIMPLES[type]}`, type));
+}
 
 // Remet le bouton « Supprimer » dans son état normal
 function annulerConfirmation() {
@@ -397,13 +400,83 @@ document.getElementById("reglages-fermer").addEventListener("click", fermerRegla
 fermerSurVoile(panneauReglages, fermerReglages);
 
 // --- 5. Réagir aux actions de l'utilisateur ------------------
+// --- 4 quater. Le calque « Ajouter » (monte du bas) ----------
+const feuilleAjout = document.getElementById("feuille-ajout");
+
+// Texte indicatif du champ, selon la catégorie choisie
+const INDICATIONS = {
+  film: "Nom du film",
+  serie: "Nom de la série",
+  jeu: "Nom du jeu",
+  recette: "Nom de la recette",
+  autre: "Ce qu'il ne faut pas oublier",
+};
+
+// La catégorie cochée parmi les 5 tuiles
+function categorieChoisie() {
+  return choixCategorie.querySelector("input:checked").value;
+}
+
+// Dessine l'icône de chaque tuile (les mêmes que sur les cartes)
+for (const zone of choixCategorie.querySelectorAll(".tuile-icone")) {
+  zone.append(creerIcone(ICONES_TYPES[zone.dataset.type]));
+}
+
+// Changer de catégorie : nouveau texte indicatif, et nouvelle recherche
+// (TMDB pour films et séries, RAWG pour les jeux, rien sinon)
+choixCategorie.addEventListener("change", () => {
+  champTitre.placeholder = INDICATIONS[categorieChoisie()];
+  programmerRecherche();
+});
+
+// Quand le clavier de l'iPhone s'ouvre, la page ne rétrécit pas : il
+// recouvre le bas de l'écran. On mesure la partie vraiment visible
+// (visualViewport) pour remonter le calque au-dessus du clavier.
+function ajusterAuClavier() {
+  const vue = window.visualViewport;
+  if (!vue) return; // vieux navigateur : on laisse faire
+  const clavier = Math.max(0, window.innerHeight - vue.height - vue.offsetTop);
+  feuilleAjout.style.setProperty("--clavier", `${clavier}px`);
+  feuilleAjout.style.setProperty("--visible", `${vue.height}px`);
+}
+
+function ouvrirAjout() {
+  // Chaque ouverture repart de zéro : Film, champ vide, pas de résultats
+  choixCategorie.querySelector('input[value="film"]').checked = true;
+  champTitre.placeholder = INDICATIONS.film;
+  champTitre.value = "";
+  masquerRecherche();
+  ajusterAuClavier();
+  feuilleAjout.showModal();
+  // Focus dans le champ tout de suite (pendant l'appui) : c'est la condition
+  // pour que l'iPhone accepte d'ouvrir le clavier
+  champTitre.focus();
+}
+
+function fermerAjout() {
+  masquerRecherche();
+  feuilleAjout.close();
+}
+
+document.getElementById("bouton-ajouter").addEventListener("click", ouvrirAjout);
+document.getElementById("ajout-fermer").addEventListener("click", fermerAjout);
+fermerSurVoile(feuilleAjout, fermerAjout);
+feuilleAjout.addEventListener("close", masquerRecherche); // Échap au clavier
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", ajusterAuClavier);
+  window.visualViewport.addEventListener("scroll", ajusterAuClavier);
+}
+
+// « Ajouter à ma liste » : saisie manuelle, sans infos TMDB / RAWG
 formulaire.addEventListener("submit", (evenement) => {
   evenement.preventDefault(); // empêche la page de se recharger
   const titre = champTitre.value.trim();
-  if (titre === "") return;
-  ajouter(titre, champType.value); // saisie manuelle : pas d'infos TMDB / RAWG
-  champTitre.value = "";
-  masquerRecherche();
+  if (titre === "") {
+    champTitre.focus(); // rien d'écrit : on remet simplement le curseur
+    return;
+  }
+  ajouter(titre, categorieChoisie());
+  fermerAjout();
 });
 
 for (const bouton of boutonsFiltre) {
@@ -933,7 +1006,7 @@ function creerVignette(affiche, type) {
 
 async function rechercher() {
   const texte = champTitre.value.trim();
-  const type = champType.value;
+  const type = categorieChoisie();
 
   // La recherche concerne les films, séries et jeux, à partir de 2 lettres
   const source = sourcePourType(type);
@@ -942,7 +1015,7 @@ async function rechercher() {
     return;
   }
   if (source.lireCle() === "") {
-    afficherEtatRecherche(`Pour chercher sur ${source.nom}, colle ta clé dans « Réglages » en bas. Tu peux aussi ajouter le titre à la main.`);
+    afficherEtatRecherche(`Recherche ${source.nom} désactivée : aucune clé sur cet appareil. Tu peux ajouter le titre à la main.`);
     return;
   }
   if (!navigator.onLine) {
@@ -969,11 +1042,11 @@ async function rechercher() {
   if (numero !== numeroRecherche) return; // une recherche plus récente a été lancée
 
   if (resultats.length === 0) {
-    afficherEtatRecherche(`Aucun résultat sur ${source.nom}. Appuie sur « Ajouter » pour l'ajouter à la main.`);
+    afficherEtatRecherche(`Aucun résultat sur ${source.nom}. Appuie sur « Ajouter à ma liste » pour l'ajouter à la main.`);
     return;
   }
 
-  etatRecherche.textContent = "Touche un résultat pour l'ajouter, ou « Ajouter » pour garder ton texte :";
+  etatRecherche.textContent = "Touche un résultat pour l'ajouter, ou « Ajouter à ma liste » pour garder ton texte :";
   resultatsRecherche.innerHTML = "";
   for (const res of resultats) {
     const li = document.createElement("li");
@@ -997,8 +1070,7 @@ async function rechercher() {
     bouton.append(creerVignette(res.affiche, res.type), textes);
     bouton.addEventListener("click", () => {
       ajouter(res.titre, res.type, res);
-      champTitre.value = "";
-      masquerRecherche();
+      fermerAjout();
     });
     li.append(bouton);
     resultatsRecherche.append(li);
@@ -1013,7 +1085,6 @@ function programmerRecherche() {
   minuteurRecherche = setTimeout(rechercher, 400);
 }
 champTitre.addEventListener("input", programmerRecherche);
-champType.addEventListener("change", programmerRecherche);
 
 // --- 9. Démarrage --------------------------------------------
 // Les sections "Terminés" et "Supprimés" sont fermées à chaque ouverture

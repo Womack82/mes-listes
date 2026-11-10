@@ -42,24 +42,6 @@
       <span aria-hidden="true"></span> <!-- case vide à droite, pour garder le logo au centre -->
     </header>
 
-    <!-- Formulaire d'ajout : caché en attendant le nouveau formulaire.
-         Il reste dans la page car la recherche TMDB / RAWG s'appuie dessus. -->
-    <form id="formulaire-ajout" hidden>
-      <input id="champ-titre" type="text" placeholder="Titre (ex : Inception)" required>
-      <select id="champ-type">
-        <option value="film">🎬 Film</option>
-        <option value="serie">📺 Série</option>
-        <option value="jeu">🎮 Jeu</option>
-        <option value="recette">🍳 Recette</option>
-        <option value="autre">📌 Autre</option>
-      </select>
-      <button type="submit">Ajouter</button>
-    </form>
-
-    <!-- Résultats de la recherche TMDB (films, séries) ou RAWG (jeux), remplis par app.js -->
-    <p id="etat-recherche" class="aide" hidden></p>
-    <ul id="resultats-recherche" class="liste resultats" hidden></ul>
-
     <!-- Filtres par type, sur deux lignes de trois. data-type indique quel type afficher -->
     <nav id="filtres" aria-label="Filtrer par type">
       <button type="button" data-type="tous" class="actif" aria-pressed="true">Tous</button>
@@ -213,6 +195,53 @@
         </div>
       </form>
     </div>
+  </dialog>
+
+  <!-- Bouton + flottant, en bas à droite : ouvre le calque « Ajouter » -->
+  <button type="button" id="bouton-ajouter" class="bouton-flottant" aria-label="Ajouter un élément">
+    <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+
+  <!-- Calque « Ajouter » : monte du bas de l'écran -->
+  <dialog id="feuille-ajout" class="panneau feuille" aria-labelledby="ajout-titre">
+    <form id="formulaire-ajout" class="feuille-contenu" novalidate>
+      <div class="poignee" aria-hidden="true"></div>
+      <div class="panneau-entete">
+        <h2 id="ajout-titre">Ajouter</h2>
+        <button type="button" id="ajout-fermer" class="bouton-rond" aria-label="Fermer">
+          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <!-- Partie qui défile si la place manque (clavier ouvert) -->
+      <div class="feuille-defile">
+        <p class="etiquette-section" id="etiquette-categorie">Catégorie</p>
+        <!-- 5 tuiles : de vrais boutons radio, cachés, avec un dessin par-dessus -->
+        <div id="choix-categorie" class="tuiles" role="radiogroup" aria-labelledby="etiquette-categorie">
+          <label class="tuile"><input type="radio" name="categorie" value="film" checked>
+            <span class="tuile-corps"><span class="tuile-icone" data-type="film"></span>Film</span></label>
+          <label class="tuile"><input type="radio" name="categorie" value="serie">
+            <span class="tuile-corps"><span class="tuile-icone" data-type="serie"></span>Série</span></label>
+          <label class="tuile"><input type="radio" name="categorie" value="jeu">
+            <span class="tuile-corps"><span class="tuile-icone" data-type="jeu"></span>Jeu</span></label>
+          <label class="tuile"><input type="radio" name="categorie" value="recette">
+            <span class="tuile-corps"><span class="tuile-icone" data-type="recette"></span>Recette</span></label>
+          <label class="tuile"><input type="radio" name="categorie" value="autre">
+            <span class="tuile-corps"><span class="tuile-icone" data-type="autre"></span>Autre</span></label>
+        </div>
+
+        <label for="champ-titre" class="etiquette-section">Titre</label>
+        <input id="champ-titre" type="text" autocomplete="off" enterkeyhint="done"
+               placeholder="Nom du film" autofocus>
+
+        <!-- Résultats de la recherche TMDB (films, séries) ou RAWG (jeux), remplis par app.js -->
+        <p id="etat-recherche" class="aide" hidden></p>
+        <ul id="resultats-recherche" class="liste resultats" hidden></ul>
+      </div>
+
+      <!-- Toujours visible en bas du calque, même clavier ouvert -->
+      <button type="submit" class="bouton-ajout">Ajouter à ma liste</button>
+    </form>
   </dialog>
 
   <!-- Fenêtre de confirmation avant de remplacer la liste.
