@@ -509,10 +509,10 @@ function ajusterAuClavier() {
   feuilleAjout.style.setProperty("--visible", `${vue.height}px`);
 }
 
-function ouvrirAjout() {
-  // Chaque ouverture repart de zéro : Film, champ vide, pas de résultats
-  choixCategorie.querySelector('input[value="film"]').checked = true;
-  champTitre.placeholder = INDICATIONS.film;
+function ouvrirAjout(type = "film") {
+  // Chaque ouverture repart de zéro : catégorie choisie, champ vide, pas de résultats
+  choixCategorie.querySelector(`input[value="${type}"]`).checked = true;
+  champTitre.placeholder = INDICATIONS[type];
   champTitre.value = "";
   majMention();
   masquerRecherche();
@@ -528,7 +528,28 @@ function fermerAjout() {
   feuilleAjout.close();
 }
 
-document.getElementById("bouton-ajouter").addEventListener("click", ouvrirAjout);
+// --- Menu des catégories (bouton +) ---
+// Le bouton + ouvre le menu ; un appui sur une catégorie ferme le menu et
+// ouvre le calque de saisie tout de suite (pendant l'appui : sinon l'iPhone
+// refuse d'ouvrir le clavier).
+const menuCategories = document.getElementById("menu-categories");
+function ouvrirMenu() {
+  menuCategories.showModal();
+}
+const fermerMenu = () => menuCategories.close();
+for (const choix of menuCategories.querySelectorAll(".choix-menu")) {
+  choix.querySelector(".rond-menu").append(creerIcone(ICONES_TYPES[choix.dataset.type]));
+  choix.addEventListener("click", () => {
+    fermerMenu();
+    ouvrirAjout(choix.dataset.type);
+  });
+}
+document.getElementById("menu-fermer").addEventListener("click", fermerMenu);
+// Appui sur le voile : la colonne laisse passer les appuis entre les
+// boutons (pointer-events), ils arrivent donc sur le <dialog> lui-même
+fermerSurVoile(menuCategories, fermerMenu);
+
+document.getElementById("bouton-ajouter").addEventListener("click", ouvrirMenu);
 document.getElementById("ajout-fermer").addEventListener("click", fermerAjout);
 fermerSurVoile(feuilleAjout, fermerAjout);
 feuilleAjout.addEventListener("close", masquerRecherche); // Échap au clavier

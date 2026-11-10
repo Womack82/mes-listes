@@ -209,6 +209,21 @@
     <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
   </button>
 
+  <!-- Menu des catégories, ouvert par le bouton + : 5 boutons ronds en colonne,
+       au-dessus d'une copie du bouton + qui pivote et devient une croix -->
+  <dialog id="menu-categories" class="menu-categories" aria-label="Choisir une catégorie">
+    <div class="menu-colonne">
+      <button type="button" class="choix-menu" data-type="film"><span class="pastille-menu">Film</span><span class="rond-menu"></span></button>
+      <button type="button" class="choix-menu" data-type="serie"><span class="pastille-menu">Série</span><span class="rond-menu"></span></button>
+      <button type="button" class="choix-menu" data-type="jeu"><span class="pastille-menu">Jeu</span><span class="rond-menu"></span></button>
+      <button type="button" class="choix-menu" data-type="recette"><span class="pastille-menu">Recette</span><span class="rond-menu"></span></button>
+      <button type="button" class="choix-menu" data-type="autre"><span class="pastille-menu">Autre</span><span class="rond-menu"></span></button>
+    </div>
+    <button type="button" id="menu-fermer" class="bouton-flottant bouton-croix" aria-label="Fermer le menu">
+      <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </dialog>
+
   <!-- Calque « Ajouter » : monte du bas de l'écran -->
   <dialog id="feuille-ajout" class="panneau feuille" aria-labelledby="ajout-titre">
     <form id="formulaire-ajout" class="feuille-contenu" novalidate>
