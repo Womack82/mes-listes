@@ -23,7 +23,7 @@
 <body>
   <main>
     <!-- En-tête : salutation (ou catégorie) à gauche, logo W au centre,
-         boutons Accueil et Réglages à droite -->
+         bouton Réglages à droite (Accueil est dans la barre du bas) -->
     <header class="entete">
       <div class="entete-textes">
         <p id="entete-petit" class="entete-petit">Bonjour</p>
@@ -35,9 +35,6 @@
         <span id="version" class="version"></span>
       </div>
       <div class="entete-boutons">
-        <button type="button" id="bouton-accueil" class="bouton-entete" aria-label="Accueil">
-          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M3.5 11 12 3.8l8.5 7.2 M5.5 9.5V20h4.8v-5.5h3.4V20h4.8V9.5"/></svg>
-        </button>
         <button type="button" id="bouton-reglages" class="bouton-entete" aria-label="Réglages">
           <!-- Roue dentée -->
           <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true">
@@ -50,7 +47,9 @@
 
     <!-- Page d'accueil -->
     <section id="page-accueil">
-      <!-- 4 carrés : nombre d'éléments à faire par catégorie (un appui ouvre la page) -->
+      <!-- 5 carrés : nombre d'éléments à faire (Films, Séries, Jeux) ou de
+           fiches (Recettes, Cocktails) ; un appui ouvre la page -->
+
       <div class="carres">
         <button type="button" class="carre verre" data-type="film">
           <span class="carre-pastille"></span><span class="carre-nombre">0</span><span class="carre-libelle">Films</span>
@@ -64,6 +63,9 @@
         <button type="button" class="carre verre" data-type="recette">
           <span class="carre-pastille"></span><span class="carre-nombre">0</span><span class="carre-libelle">Recettes</span>
         </button>
+        <button type="button" class="carre verre" data-type="cocktail">
+          <span class="carre-pastille"></span><span class="carre-nombre">0</span><span class="carre-libelle">Cocktails</span>
+        </button>
       </div>
 
       <h2 class="titre-section">Derniers ajoutés</h2>
@@ -71,7 +73,7 @@
       <p id="recents-vide" class="aide vide" hidden>Rien à faire pour l'instant. Appuie sur + pour ajouter.</p>
     </section>
 
-    <!-- Page d'une catégorie (Films, Séries, Jeux ou Recettes) -->
+    <!-- Page d'une catégorie (Films, Séries, Jeux, Recettes ou Cocktails) -->
     <section id="page-categorie" hidden>
       <ul id="liste" class="liste"></ul>
       <p id="message-vide" class="aide vide" hidden></p>
@@ -92,17 +94,21 @@
     </section>
   </main>
 
-  <!-- Barre du bas, flottante, sur toutes les pages :
-       Films, Séries | bouton + | Jeux, Recettes -->
-  <nav class="barre-bas" aria-label="Catégories">
-    <button type="button" class="onglet" data-type="film"><span class="onglet-icone"></span>Films</button>
-    <button type="button" class="onglet" data-type="serie"><span class="onglet-icone"></span>Séries</button>
+  <!-- Barre du bas, flottante, sur toutes les pages, icônes seules :
+       Accueil, Recettes, Cocktails | bouton + | Films, Séries, Jeux -->
+  <nav class="barre-bas" aria-label="Navigation">
+    <button type="button" id="bouton-accueil" class="bouton-accueil" aria-label="Accueil">
+      <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M3.5 11 12 3.8l8.5 7.2 M5.5 9.5V20h4.8v-5.5h3.4V20h4.8V9.5"/></svg>
+    </button>
+    <button type="button" class="onglet" data-type="recette" aria-label="Recettes"><span class="onglet-icone"></span></button>
+    <button type="button" class="onglet" data-type="cocktail" aria-label="Cocktails"><span class="onglet-icone"></span></button>
     <!-- Accueil : ouvre le menu des catégories. Page catégorie : ouvre la saisie -->
     <button type="button" id="bouton-ajouter" class="bouton-plus" aria-label="Ajouter un élément">
       <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
     </button>
-    <button type="button" class="onglet" data-type="jeu"><span class="onglet-icone"></span>Jeux</button>
-    <button type="button" class="onglet" data-type="recette"><span class="onglet-icone"></span>Recettes</button>
+    <button type="button" class="onglet" data-type="film" aria-label="Films"><span class="onglet-icone"></span></button>
+    <button type="button" class="onglet" data-type="serie" aria-label="Séries"><span class="onglet-icone"></span></button>
+    <button type="button" class="onglet" data-type="jeu" aria-label="Jeux"><span class="onglet-icone"></span></button>
   </nav>
 
   <!-- Panneau Réglages : descend du haut, sur un voile sombre.
@@ -137,8 +143,8 @@
         <button type="button" id="ligne-autres" class="ligne-reglage" data-vue="autres" hidden>
           <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M9 3h6 M10 3v6l-3 4h10l-3-4V3 M12 13v8"/></svg></span>
           <span class="ligne-textes">
-            <span class="ligne-titre">Autres</span>
-            <span class="ligne-sous-titre">Éléments de l'ancienne catégorie « Autre »</span>
+            <span class="ligne-titre">Anciens éléments « Autre »</span>
+            <span class="ligne-sous-titre">Catégorie retirée, éléments conservés</span>
           </span>
           <span id="badge-autres" class="badge">0</span>
           <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
@@ -277,7 +283,7 @@
     </div>
   </dialog>
 
-  <!-- Menu des catégories (bouton + de l'accueil) : 4 boutons ronds dans une
+  <!-- Menu des catégories (bouton + de l'accueil) : 5 boutons ronds dans une
        carte en verre au-dessus de la barre, et une copie du bouton + qui
        pivote et devient une croix -->
   <dialog id="menu-categories" class="menu-categories" aria-label="Choisir une catégorie">
@@ -286,6 +292,7 @@
       <button type="button" class="choix-menu" data-type="serie"><span class="rond-menu"></span>Série</button>
       <button type="button" class="choix-menu" data-type="jeu"><span class="rond-menu"></span>Jeu</button>
       <button type="button" class="choix-menu" data-type="recette"><span class="rond-menu"></span>Recette</button>
+      <button type="button" class="choix-menu" data-type="cocktail"><span class="rond-menu"></span>Cocktail</button>
     </div>
     <button type="button" id="menu-fermer" class="bouton-plus bouton-croix" aria-label="Fermer le menu">
       <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -315,7 +322,7 @@
         <button type="button" id="ajout-direct" class="bouton-ajout-ligne" hidden>Ajouter</button>
       </div>
 
-      <!-- Recette seulement : lien (facultatif, avec bouton pour coller) et note -->
+      <!-- Recette et cocktail seulement : lien (facultatif, avec bouton pour coller) et note -->
       <div id="zone-recette" class="zone-recette" hidden>
         <div class="ligne-lien">
           <input id="champ-lien" type="url" inputmode="url" aria-label="Lien de la recette (facultatif)"

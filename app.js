@@ -6,14 +6,19 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.8";
+const VERSION = "v1.9";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
 const CLE_SUPPRIMES = "mes-listes-supprimes";
 
 // Emoji affiché devant chaque type
-const EMOJIS = { film: "🎬", serie: "📺", jeu: "🎮", recette: "🍳", autre: "📌" };
+const EMOJIS = { film: "🎬", serie: "📺", jeu: "🎮", recette: "🍳", cocktail: "🍸", autre: "📌" };
+
+// Recettes et cocktails sont des FICHES à conserver : pas de case à cocher,
+// jamais « terminées ». Films, séries et jeux sont des listes « à faire ».
+const FICHES = new Set(["recette", "cocktail"]);
+const estFiche = (type) => FICHES.has(type);
 
 // Début de l'adresse des affiches TMDB (w185 = largeur 185 pixels)
 const ADRESSE_AFFICHES = "https://image.tmdb.org/t/p/w185";
@@ -44,7 +49,21 @@ let elements = charger(CLE_STOCKAGE);
 // { titre: "Inception", type: "film", dateSuppression: "2026-11-09T14:30:00.000Z" }
 let supprimes = charger(CLE_SUPPRIMES);
 
-// La page affichée : "accueil" ou une catégorie ("film", "serie", "jeu", "recette")
+// Migration (v1.9) : une recette cochée « faite » avant que les recettes
+// deviennent des fiches redevient une fiche normale (rien n'est perdu)
+function migrerFiches() {
+  let change = false;
+  for (const el of elements) {
+    if (estFiche(el.type) && el.fait) {
+      el.fait = false;
+      change = true;
+    }
+  }
+  if (change) sauvegarder();
+}
+migrerFiches();
+
+// La page affichée : "accueil" ou une catégorie ("film", "serie", "jeu", "recette", "cocktail")
 let pageActive = "accueil";
 
 // On récupère les morceaux de la page dont on a besoin
@@ -77,15 +96,16 @@ const badgeAutres = document.getElementById("badge-autres");
 const ligneAutres = document.getElementById("ligne-autres");
 
 // Nom du type affiché sous le titre des cartes
-const NOMS_SIMPLES = { film: "Film", serie: "Série", jeu: "Jeu", recette: "Recette", autre: "Autre" };
+const NOMS_SIMPLES = { film: "Film", serie: "Série", jeu: "Jeu", recette: "Recette", cocktail: "Cocktail", autre: "Autre" };
 
 // Icônes des types, dessinées en SVG (24 × 24) pour pouvoir les colorer :
-// clap de cinéma, télé, manette, toque, punaise
+// pellicule, écran, manette, bol avec vapeur, verre à cocktail, punaise
 const ICONES_TYPES = {
-  film: "M4 11h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z M4 11 3.4 8.1a1 1 0 0 1 .8-1.2l13.7-2.8a1 1 0 0 1 1.2.8l.5 2.6z M8.4 6.2l2.2 3.2 M13.2 5.2l2.2 3.2",
+  film: "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M7 3v18 M17 3v18 M3 7.5h4 M3 12h18 M3 16.5h4 M17 7.5h4 M17 16.5h4",
   serie: "M4 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z M8 3l4 4 4-4",
   jeu: "M7 8h10a5 5 0 0 1 5 5v1a3.5 3.5 0 0 1-6.3 2.1L14.5 15h-5l-1.2 1.1A3.5 3.5 0 0 1 2 14v-1a5 5 0 0 1 5-5z M7.5 10.5v4 M5.5 12.5h4 M16 11.5h.01 M18 13.5h.01",
-  recette: "M6 14a4 4 0 1 1 1.4-7.8 5 5 0 0 1 9.2 0A4 4 0 1 1 18 14v6H6z M6 17h12",
+  recette: "M3 12h18a9 7.5 0 0 1-18 0z M8.5 21h7 M8 8.5c-1-1.2 1-2.3 0-3.5 M12 8.5c-1-1.2 1-2.3 0-3.5 M16 8.5c-1-1.2 1-2.3 0-3.5",
+  cocktail: "M4 4h16l-8 9z M7 7.5h10 M12 13v7 M8 20h8 M16 2.5l-2 4",
   autre: "M9 3h6 M10 3v6l-3 4h10l-3-4V3 M12 13v8",
 };
 
@@ -102,11 +122,12 @@ function creerIcone(trace, classe = "icone-svg") {
   return svg;
 }
 
-// Les 4 catégories de la navigation (« Autre » n'en fait plus partie :
+// Les 5 catégories de la navigation (« Autre » n'en fait plus partie :
 // ses anciens éléments sont gardés et visibles dans Réglages → Autres)
-const NOMS_PLURIELS = { film: "Films", serie: "Séries", jeu: "Jeux", recette: "Recettes" };
-// En-tête d'une page catégorie : « 12 à voir », « 3 à jouer »…
-const VERBES = { film: "à voir", serie: "à voir", jeu: "à jouer", recette: "à cuisiner" };
+const NOMS_PLURIELS = { film: "Films", serie: "Séries", jeu: "Jeux", recette: "Recettes", cocktail: "Cocktails" };
+// Petit texte d'une page catégorie : « 12 à voir », « 3 à jouer » ;
+// pour les fiches (recettes, cocktails) : « 8 fiches »
+const VERBES = { film: "à voir", serie: "à voir", jeu: "à jouer" };
 
 // Date d'ajout d'un élément : son identifiant est l'heure de création
 // (Date.now()). Renvoie null si l'identifiant n'est pas une date.
@@ -127,8 +148,9 @@ function texteAjout(el) {
 }
 
 // --- 3. Afficher les pages et les listes ----------------------
-// Accueil : 4 carrés (nombre à faire par catégorie) + 4 derniers ajoutés.
-// Page catégorie : les éléments à faire de cette catégorie.
+// Accueil : 5 carrés (nombre à faire ; nombre de fiches pour Recettes et
+// Cocktails) + 4 derniers ajoutés.
+// Page catégorie : les éléments à faire (ou toutes les fiches) de cette catégorie.
 // Panneau Réglages : terminés, supprimés, anciens « Autre ».
 // animer = true : les cartes apparaissent en fondu, l'une après l'autre
 // (seulement en arrivant sur une page, pas après chaque coche).
@@ -139,13 +161,15 @@ function afficher(animer = false) {
   const supprimesRecents = [...supprimes].reverse(); // le plus récent en haut
 
   // Carrés de l'accueil
+  // (une fiche n'est jamais « faite » : aFaire contient toutes les fiches)
   for (const carre of carres) {
     carre.querySelector(".carre-nombre").textContent =
       aFaire.filter((el) => el.type === carre.dataset.type).length;
   }
 
-  // Derniers ajoutés (toutes catégories), du plus récent au plus ancien
-  const recents = [...aFaire]
+  // Derniers ajoutés (les 5 catégories), du plus récent au plus ancien.
+  // Les anciens « Autre » n'y sont pas : ils restent dans Réglages.
+  const recents = aFaire.filter((el) => el.type !== "autre")
     .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
     .slice(0, 4);
   listeRecents.replaceChildren(...recents.map((el) => creerCarte(el, true)));
@@ -161,7 +185,9 @@ function afficher(animer = false) {
       ? "Rien ici pour l'instant. Appuie sur + pour ajouter."
       : "Tout est fait ! 🎉";
     messageVide.hidden = visibles.length > 0;
-    enteteGrand.textContent = `${visibles.length} ${VERBES[pageActive]}`;
+    entetePetit.textContent = estFiche(pageActive)
+      ? pluriel(visibles.length, "fiche")
+      : `${visibles.length} ${VERBES[pageActive]}`;
   }
 
   // Panneau Réglages
@@ -195,8 +221,8 @@ function allerA(page) {
   pageAccueil.hidden = !accueil;
   pageCategorie.hidden = accueil;
   enteteSalut();
-  // Bouton Accueil bleu sur l'accueil ; catégorie surlignée dans la barre
-  boutonAccueil.classList.toggle("actif", accueil);
+  // Catégorie surlignée dans la barre (le bouton Accueil garde toujours
+  // le même style ; aria-current indique la page aux lecteurs d'écran)
   boutonAccueil.toggleAttribute("aria-current", accueil);
   for (const onglet of onglets) {
     const actif = onglet.dataset.type === page;
@@ -210,24 +236,26 @@ function allerA(page) {
   afficher(true);
 }
 
-// Petit texte de l'en-tête : « Bonjour » ou le nom de la catégorie.
-// Grand texte : « Womack » sur l'accueil (sur une catégorie, le nombre
-// à faire est écrit par afficher()).
+// En-tête de l'accueil : « Bonjour » (petit) et « Womack » (grand).
+// Page catégorie : le nom de la catégorie en grand ; le petit texte
+// (« 12 à voir », « 8 fiches ») est écrit par afficher().
 function enteteSalut() {
   if (pageActive === "accueil") {
     entetePetit.textContent = "Bonjour";
     enteteGrand.textContent = "Womack";
   } else {
-    entetePetit.textContent = NOMS_PLURIELS[pageActive];
+    enteteGrand.textContent = NOMS_PLURIELS[pageActive];
   }
 }
 
 // Fabrique la carte <li> d'un élément :
 // vignette + titre + type/année (+ date d'ajout sur l'accueil) ; un appui
-// ouvre le panneau d'actions. À droite, une case ronde pour cocher.
+// ouvre le panneau d'actions. À droite, une case ronde pour cocher
+// (sauf pour les fiches : recettes et cocktails).
 function creerCarte(el, avecDate = false) {
+  const fiche = estFiche(el.type);
   const li = document.createElement("li");
-  li.className = "carte";
+  li.className = fiche ? "carte fiche" : "carte";
   li.dataset.id = el.id; // pour retrouver la carte et la faire glisser (animations)
   if (el.fait) li.classList.add("fait");
 
@@ -276,19 +304,20 @@ function creerCarte(el, avecDate = false) {
   zone.append(caseACocher, rond);
 
   li.append(corps);
-  // Recette avec un lien : petite icône qui ouvre l'adresse dans un nouvel
+  // Fiche avec un lien : petite icône qui ouvre l'adresse dans un nouvel
   // onglet (noopener : la page ouverte ne peut pas agir sur l'app)
-  if (el.type === "recette" && el.lien) {
+  if (fiche && el.lien) {
     const lien = document.createElement("a");
     lien.className = "carte-lien";
     lien.href = el.lien;
     lien.target = "_blank";
     lien.rel = "noopener";
-    lien.setAttribute("aria-label", `Ouvrir le lien de la recette : ${el.titre}`);
+    lien.setAttribute("aria-label", `Ouvrir le lien : ${el.titre}`);
     lien.append(creerIcone("M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"));
     li.append(lien);
   }
-  li.append(zone);
+  // Pas de case à cocher pour une fiche
+  if (!fiche) li.append(zone);
   return li;
 }
 
@@ -430,6 +459,8 @@ function modifier(id, titre, type, recette = null) {
   if (type !== el.type) retirerInfosExternes(el);
   el.titre = titre;
   el.type = type;
+  // Devenu recette ou cocktail : une fiche n'est jamais « terminée »
+  if (estFiche(type)) el.fait = false;
   if (recette) {
     if (recette.lien) el.lien = recette.lien; else delete el.lien;
     if (recette.note) el.note = recette.note; else delete el.note;
@@ -502,8 +533,8 @@ function ouvrirActions(id) {
   // Lien IMDb seulement pour les films et séries qui en ont un
   actionsImdb.hidden = !el.idImdb;
   if (el.idImdb) actionsImdb.href = `https://www.imdb.com/title/${el.idImdb}/`;
-  // Recette : sa note sous le titre et « Ouvrir le lien ↗ » s'ils existent
-  const recette = el.type === "recette";
+  // Recette ou cocktail : sa note sous le titre et « Ouvrir le lien ↗ » s'ils existent
+  const recette = estFiche(el.type);
   actionsNote.textContent = recette && el.note ? el.note : "";
   actionsNote.hidden = !(recette && el.note);
   actionsLien.hidden = !(recette && el.lien);
@@ -520,9 +551,9 @@ function fermerActions() {
   panneauActions.close();
 }
 
-// Champs lien et note : visibles seulement quand le type choisi est Recette
+// Champs lien et note : visibles seulement quand le type choisi est Recette ou Cocktail
 function majEditionRecette() {
-  editionRecette.hidden = editionType.value !== "recette";
+  editionRecette.hidden = !estFiche(editionType.value);
 }
 editionType.addEventListener("change", majEditionRecette);
 
@@ -551,7 +582,7 @@ actionsEdition.addEventListener("submit", (evenement) => {
   const nouveauTitre = editionTitre.value.trim();
   if (nouveauTitre === "" || idActions === null) return;
   let recette = null;
-  if (editionType.value === "recette") {
+  if (estFiche(editionType.value)) {
     const texteLien = editionLien.value.trim();
     const lien = lienValide(texteLien);
     if (texteLien !== "" && !lien) {
@@ -608,7 +639,7 @@ const VUES = {
   menu: { titre: "Réglages", bloc: document.getElementById("vue-menu") },
   faits: { titre: "Terminés", bloc: document.getElementById("vue-faits") },
   supprimes: { titre: "Supprimés", bloc: document.getElementById("vue-supprimes") },
-  autres: { titre: "Autres", bloc: document.getElementById("vue-autres") },
+  autres: { titre: "Anciens « Autre »", bloc: document.getElementById("vue-autres") },
   sauvegarde: { titre: "Sauvegarde", bloc: document.getElementById("vue-sauvegarde") },
   cles: { titre: "Clés API", bloc: document.getElementById("vue-cles") },
 };
@@ -672,12 +703,14 @@ const TITRES_AJOUT = {
   serie: "Ajouter une série",
   jeu: "Ajouter un jeu",
   recette: "Ajouter une recette",
+  cocktail: "Ajouter un cocktail",
 };
 const INDICATIONS = {
   film: "Nom du film",
   serie: "Nom de la série",
   jeu: "Nom du jeu",
   recette: "Nom de la recette",
+  cocktail: "Nom du cocktail",
 };
 
 // Mention de la source des données, en bas de la liste de résultats
@@ -749,9 +782,9 @@ function ouvrirAjout(type) {
   champTitre.enterKeyHint = avecRecherche ? "search" : "done";
   mentionSource.textContent = MENTIONS[type] || "";
   rechercheJeuxIndisponible = false; // chaque ouverture retente RAWG
-  // Recette : lien et note vides. Rien n'est lu dans le presse-papiers
+  // Recette, cocktail : lien et note vides. Rien n'est lu dans le presse-papiers
   // à l'ouverture : seulement quand on touche « Coller le lien ».
-  zoneRecette.hidden = type !== "recette";
+  zoneRecette.hidden = !estFiche(type);
   champLien.value = "";
   champNote.value = "";
   messageColler.hidden = true;
@@ -824,8 +857,8 @@ function ajouterTelQuel() {
   const type = categorieChoisie();
   const titre = champTitre.value.trim();
   let infos = null;
-  // Recette : lien (vérifié) et note, tous les deux facultatifs
-  if (type === "recette") {
+  // Recette, cocktail : lien (vérifié) et note, tous les deux facultatifs
+  if (estFiche(type)) {
     const texteLien = champLien.value.trim();
     const lien = lienValide(texteLien);
     if (texteLien !== "" && !lien) {
@@ -936,8 +969,10 @@ const FORMAT_NOM = "mes-listes";
 // (facultatifs). Version 3 : + identifiant RAWG pour les jeux (facultatif).
 // Version 4 : + identifiant IMDb pour les films et séries (facultatif).
 // Version 5 : + lien et note des recettes (facultatifs).
-// L'app sait lire les cinq.
-const FORMAT_VERSION = 5;
+// Version 6 : + type « cocktail » ; recettes et cocktails ne sont jamais
+// « terminés » (une ancienne recette cochée est remise en fiche à l'import).
+// L'app sait lire les six.
+const FORMAT_VERSION = 6;
 
 const boutonExporter = document.getElementById("bouton-exporter");
 const boutonImporter = document.getElementById("bouton-importer");
@@ -1044,7 +1079,8 @@ function verifierFichier(donnees) {
     if (!titreValide(el.titre)) throw new Error(`${numero} n'a pas de titre.`);
     if (!typeValide(el.type)) throw new Error(`${numero} a un type inconnu (« ${el.type} »).`);
     if (typeof el.fait !== "boolean") throw new Error(`${numero} n'indique pas s'il est terminé.`);
-    const propre = { id: el.id, titre: el.titre.trim(), type: el.type, fait: el.fait };
+    // Une fiche (recette, cocktail) n'est jamais « terminée »
+    const propre = { id: el.id, titre: el.titre.trim(), type: el.type, fait: estFiche(el.type) ? false : el.fait };
 
     // Infos TMDB (version 2, facultatives) : vérifiées si elles sont là
     if (el.idTmdb !== undefined) {
@@ -1441,7 +1477,7 @@ const SOURCES = {
   },
 };
 
-// Quel service interroger selon le type choisi (aucun pour recette / autre)
+// Quel service interroger selon le type choisi (aucun pour recette, cocktail, autre)
 function sourcePourType(type) {
   if (type === "film" || type === "serie") return SOURCES.tmdb;
   if (type === "jeu") return SOURCES.rawg;

@@ -53,8 +53,8 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(70vmax 60vmax at -10% -5%, rgba(44, 110, 154, 0.28), transparent 60%),
-    radial-gradient(60vmax 55vmax at 110% 50%, rgba(255, 155, 84, 0.26), transparent 60%),
+    radial-gradient(70vmax 60vmax at -10% -5%, rgba(44, 110, 154, 0.26), transparent 60%),
+    radial-gradient(60vmax 55vmax at 110% 50%, rgba(255, 155, 84, 0.24), transparent 60%),
     linear-gradient(170deg, #eef3fa, #dde8f5 55%, #e6ecf6);
 }
 
@@ -97,8 +97,8 @@ h1, h2 { color: var(--texte); }
 }
 
 /* ---------- En-tête ---------- */
-/* Gauche : « Bonjour » / « Womack » (ou la catégorie) ; centre : logo en
-   filigrane ; droite : boutons Accueil et Réglages */
+/* Gauche : « Bonjour » / « Womack » (ou nombre / catégorie) ; centre : logo
+   en filigrane ; droite : bouton Réglages */
 .entete {
   position: relative;
   display: flex;
@@ -114,7 +114,7 @@ h1, h2 { color: var(--texte); }
 .entete-petit { margin: 0; font-size: 14px; line-height: 1.2; color: var(--gris); }
 .entete-grand {
   margin: 0;
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -144,7 +144,7 @@ h1, h2 { color: var(--texte); }
 }
 
 .entete-boutons { position: relative; z-index: 1; display: flex; gap: 8px; flex-shrink: 0; }
-/* Boutons ronds de 48 px : verre, icône marine ; actif = bleu, icône blanche */
+/* Bouton rond de 48 px (Réglages) : verre, icône bleue */
 .bouton-entete {
   display: flex;
   align-items: center;
@@ -156,16 +156,13 @@ h1, h2 { color: var(--texte); }
   background: var(--verre-fond);
   border: var(--verre-bord);
   box-shadow: var(--verre-ombre);
-  color: var(--texte);
-}
-.bouton-entete.actif {
-  background: var(--bleu);
-  border-color: var(--bleu);
-  color: white;
+  color: var(--bleu);
 }
 
-/* ---------- Accueil : 4 carrés ---------- */
-.carres { display: flex; gap: 10px; }
+/* ---------- Accueil : 5 carrés ---------- */
+/* Contenu centré ; presque pas de marge sur les côtés pour que
+   « Recettes » et « Cocktails » tiennent */
+.carres { display: flex; gap: 8px; }
 .carre {
   flex: 1;
   min-width: 0;
@@ -175,10 +172,11 @@ h1, h2 { color: var(--texte); }
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 0;
+  padding: 0 2px;
   border-radius: 30px;
   color: var(--texte);
   font: inherit;
+  text-align: center;
 }
 .carre-pastille {
   display: flex;
@@ -193,7 +191,14 @@ h1, h2 { color: var(--texte); }
 }
 .carre-pastille .icone-svg { width: 16px; height: 16px; }
 .carre-nombre { font-size: 24px; font-weight: 800; line-height: 1.1; }
-.carre-libelle { font-size: 12px; color: var(--gris); }
+.carre-libelle {
+  max-width: 100%;
+  font-size: 11px;
+  color: var(--gris);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .titre-section { margin: 26px 4px 12px; font-size: 18px; font-weight: 800; }
 
@@ -213,6 +218,12 @@ h1, h2 { color: var(--texte); }
 }
 /* Page catégorie : cartes un peu plus grandes */
 #liste .carte { border-radius: 32px; padding: 12px 8px 12px 12px; }
+/* Fiche (recette, cocktail) : pas de case à droite, un peu plus de marge */
+.carte.fiche,
+#liste .carte.fiche { padding-right: 16px; }
+/* …sauf si l'icône lien (44 px) est au bout */
+.carte.fiche:has(.carte-lien),
+#liste .carte.fiche:has(.carte-lien) { padding-right: 8px; }
 
 /* Partie gauche de la carte : un grand bouton (ouvre le panneau d'actions) */
 .carte-corps {
@@ -342,7 +353,8 @@ h1, h2 { color: var(--texte); }
 @keyframes apparaitre-bas { from { opacity: 0; transform: translateY(16px); } }
 
 /* ---------- Barre du bas (flottante, sur toutes les pages) ---------- */
-/* Films, Séries | + | Jeux, Recettes : 5 colonnes, le + exactement au centre */
+/* Accueil, Recettes, Cocktails | + | Films, Séries, Jeux : 7 colonnes,
+   le + au centre. Icônes seules (le nom est dans aria-label). */
 .barre-bas {
   position: fixed;
   left: calc(16px + env(safe-area-inset-left));
@@ -350,13 +362,13 @@ h1, h2 { color: var(--texte); }
   bottom: var(--bas-barre);
   z-index: 20;
   display: grid;
-  grid-template-columns: 1fr 1fr auto 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr) auto repeat(3, 1fr);
   align-items: center;
   justify-items: center;
   max-width: 568px;
   height: 72px;
   margin: 0 auto;
-  padding: 0 6px;
+  padding: 0 8px;
   border-radius: 36px;
   background: rgba(255, 255, 255, 0.78);
   border: var(--verre-bord);
@@ -364,29 +376,40 @@ h1, h2 { color: var(--texte); }
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
 }
-/* Bouton catégorie : 64 × 56, icône 24 px et libellé 11 px dessous */
+/* Bouton catégorie : 44 × 48, icône 24 px grise */
 .onglet {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  width: min(64px, 100%);
-  height: 56px;
+  width: 44px;
+  height: 48px;
   padding: 0;
   border: none;
-  border-radius: 28px;
+  border-radius: 24px;
   background: transparent;
-  color: var(--texte);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
+  color: var(--gris);
 }
 .onglet-icone { display: flex; }
 .onglet-icone .icone-svg { width: 24px; height: 24px; }
 /* Catégorie affichée : fond bleu pâle, icône bleue */
-.onglet.actif { background: rgba(44, 110, 154, 0.15); }
-.onglet.actif .onglet-icone { color: var(--bleu); }
+.onglet.actif { background: rgba(44, 110, 154, 0.15); color: var(--bleu); }
+
+/* Bouton Accueil : se démarque, toujours le même style (actif ou non) :
+   rond 48 px, dégradé bleu, icône blanche, liseré blanc, ombre bleue */
+.bouton-accueil {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #3f86b5, #2c6e9a);
+  color: white;
+  box-shadow: 0 8px 18px rgba(44, 110, 154, 0.45);
+}
+.bouton-accueil .icone-svg { width: 24px; height: 24px; }
 
 /* Bouton + : rond 56 px, dégradé orange, icône marine, ombre orange */
 .bouton-plus {
@@ -420,7 +443,7 @@ h1, h2 { color: var(--texte); }
 .menu-categories::backdrop { background: var(--voile); }
 .menu-categories[open]::backdrop { animation: fondu 200ms ease-out; }
 
-/* Carte en verre centrée juste au-dessus de la barre : 4 choix en ligne */
+/* Carte en verre centrée juste au-dessus de la barre : 5 choix en ligne */
 .menu-carte {
   position: fixed;
   left: 0;
@@ -440,7 +463,7 @@ h1, h2 { color: var(--texte); }
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  width: 68px;
+  width: 60px;
   padding: 0;
   border: none;
   background: none;
@@ -453,8 +476,8 @@ h1, h2 { color: var(--texte); }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: white;
   color: var(--bleu);
@@ -467,6 +490,7 @@ h1, h2 { color: var(--texte); }
 .menu-categories[open] .choix-menu:nth-child(2) { animation-delay: 80ms; }
 .menu-categories[open] .choix-menu:nth-child(3) { animation-delay: 120ms; }
 .menu-categories[open] .choix-menu:nth-child(4) { animation-delay: 160ms; }
+.menu-categories[open] .choix-menu:nth-child(5) { animation-delay: 200ms; }
 @keyframes surgir { from { opacity: 0; transform: translateY(12px); } }
 
 /* Copie du bouton + posée exactement sur celui de la barre (au-dessus du
@@ -1040,7 +1064,7 @@ form.edition .message { margin: 4px 0 0; }
   .verre,
   .verre-flou,
   .carte,
-  .bouton-entete:not(.actif),
+  .bouton-entete,
   .barre-bas,
   .panneau,
   .menu-carte,
