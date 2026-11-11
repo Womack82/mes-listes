@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.6";
+const VERSION = "v1.7";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -573,6 +573,9 @@ const mentionSource = document.getElementById("mention-source");
 
 // Catégorie choisie dans le menu (film, serie, jeu, recette)
 let categorieAjout = "film";
+// true quand la recherche de jeux (RAWG) a échoué ou que la clé manque :
+// le calque passe en saisie manuelle jusqu'à sa fermeture
+let rechercheJeuxIndisponible = false;
 function categorieChoisie() {
   return categorieAjout;
 }
@@ -603,7 +606,8 @@ const MENTIONS = {
 function majTelQuel() {
   const titre = champTitre.value.trim();
   ajoutTelQuel.textContent = `Ajouter « ${titre} » tel quel`;
-  ajoutTelQuel.hidden = titre === "";
+  // Saisie manuelle des jeux : le bouton orange « Ajouter » la remplace
+  ajoutTelQuel.hidden = titre === "" || rechercheJeuxIndisponible;
 }
 
 // Quand le clavier de l'iPhone s'ouvre, la page ne rétrécit pas : il
@@ -658,7 +662,10 @@ function ouvrirAjout(type) {
   // Touche du clavier : « Rechercher » ou « OK » (lue par l'iPhone au focus)
   champTitre.enterKeyHint = avecRecherche ? "search" : "done";
   mentionSource.textContent = MENTIONS[type] || "";
+  rechercheJeuxIndisponible = false; // chaque ouverture retente RAWG
   masquerRecherche();
+  // Jeu sans clé RAWG : saisie manuelle tout de suite
+  if (type === "jeu" && lireCleRawg() === "") passerJeuxEnManuel(true);
   ajusterAuClavier();
   verrouillerPage();
   feuilleAjout.showModal();
@@ -733,10 +740,10 @@ function ajouterTelQuel() {
 // Touche Entrée du clavier :
 // - Film, Série, Jeu : lance la recherche tout de suite et ferme le clavier
 //   (pour voir tous les résultats) ;
-// - Recette : ajoute l'élément.
+// - Recette, ou jeu quand la recherche RAWG est indisponible : ajoute l'élément.
 formulaire.addEventListener("submit", (evenement) => {
   evenement.preventDefault(); // empêche la page de se recharger
-  if (sourcePourType(categorieChoisie())) {
+  if (sourcePourType(categorieChoisie()) && !rechercheJeuxIndisponible) {
     clearTimeout(minuteurRecherche);
     rechercher();
     champTitre.blur(); // fait descendre le clavier
@@ -1027,19 +1034,29 @@ async function appelerTmdb(chemin, parametres = {}, cle = lireCleTmdb()) {
 }
 
 // Interroge RAWG (jeux vidéo). RAWG n'a qu'une sorte de clé : ajoutée à l'adresse.
+// RAWG tombe parfois en panne (erreur 522 qui met très longtemps à arriver) :
+// on abandonne au bout de 8 secondes, et toute réponse autre que 200 est un échec.
+const DELAI_RAWG = 8000;
 async function appelerRawg(chemin, parametres = {}, cle = lireCleRawg()) {
   const adresse = new URL("https://api.rawg.io/api" + chemin);
   for (const [nom, valeur] of Object.entries(parametres)) {
     adresse.searchParams.set(nom, valeur);
   }
   adresse.searchParams.set("key", cle);
-  const reponse = await fetch(adresse);
-  if (!reponse.ok) {
-    const erreur = new Error(`RAWG a répondu ${reponse.status}`);
-    erreur.statut = reponse.status;
-    throw erreur;
+  // AbortController : permet d'annuler l'appel quand le délai est dépassé
+  const controle = new AbortController();
+  const minuteur = setTimeout(() => controle.abort(), DELAI_RAWG);
+  try {
+    const reponse = await fetch(adresse, { signal: controle.signal });
+    if (reponse.status !== 200) {
+      const erreur = new Error(`RAWG a répondu ${reponse.status}`);
+      erreur.statut = reponse.status;
+      throw erreur;
+    }
+    return await reponse.json();
+  } finally {
+    clearTimeout(minuteur);
   }
-  return reponse.json();
 }
 
 // Une clé refusée : TMDB répond 401, RAWG répond 401 ou 403 selon les cas
@@ -1262,14 +1279,47 @@ function creerVignette(affiche, type) {
   return image;
 }
 
+// Recherche de jeux impossible (RAWG en panne, trop lent, hors ligne, clé
+// absente ou refusée) : message simple, sans détail technique, et le calque
+// passe en saisie manuelle (bouton orange « Ajouter », la touche Entrée
+// ajoute). Le jeu sera créé avec le titre tapé, sans infos RAWG.
+// On ne réessaie plus RAWG avant la prochaine ouverture du calque.
+const MESSAGE_JEUX_INDISPONIBLE = "Recherche de jeux indisponible pour le moment. Vous pouvez ajouter le jeu manuellement.";
+function passerJeuxEnManuel(cleAbsente) {
+  rechercheJeuxIndisponible = true;
+  clearTimeout(minuteurRecherche);
+  numeroRecherche++; // une réponse encore en route sera ignorée
+  afficherEtatRecherche(MESSAGE_JEUX_INDISPONIBLE);
+  if (cleAbsente) {
+    const indication = document.createElement("span");
+    indication.className = "indication";
+    indication.textContent = "Clé RAWG à renseigner dans Réglages → Clés API.";
+    etatRecherche.append(indication);
+  }
+  ajoutDirect.hidden = false;
+  champTitre.enterKeyHint = "done"; // la touche du clavier devient « OK »
+}
+
 async function rechercher() {
   const texte = champTitre.value.trim();
   const type = categorieChoisie();
+
+  // Jeux en saisie manuelle : on garde le message, plus d'appel à RAWG
+  if (type === "jeu" && rechercheJeuxIndisponible) return;
 
   // La recherche concerne les films, séries et jeux, à partir de 2 lettres
   const source = sourcePourType(type);
   if (!source || texte.length < 2) {
     masquerRecherche();
+    return;
+  }
+  // Jeux : clé absente ou hors ligne → saisie manuelle
+  if (source === SOURCES.rawg && source.lireCle() === "") {
+    passerJeuxEnManuel(true);
+    return;
+  }
+  if (source === SOURCES.rawg && !navigator.onLine) {
+    passerJeuxEnManuel(false);
     return;
   }
   if (source.lireCle() === "") {
@@ -1290,6 +1340,11 @@ async function rechercher() {
     resultats = await source.chercher(texte);
   } catch (erreur) {
     if (numero !== numeroRecherche) return;
+    // Jeux : panne, délai de 8 s dépassé, réponse illisible, clé refusée…
+    if (source === SOURCES.rawg) {
+      passerJeuxEnManuel(false);
+      return;
+    }
     afficherEtatRecherche(
       cleRefusee(erreur)
         ? `${source.nom} refuse ta clé. Vérifie-la dans Réglages → Clés API. Tu peux ajouter le titre à la main.`

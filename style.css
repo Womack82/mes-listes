@@ -852,6 +852,8 @@ html.verrou body { overflow: hidden; }
 
 /* ---------- Résultats de la recherche TMDB / RAWG ---------- */
 #etat-recherche { font-size: 14px; color: var(--gris); margin: 12px 4px 8px; }
+/* Petite indication sous le message (ex. : clé RAWG à renseigner) */
+#etat-recherche .indication { display: block; margin-top: 4px; font-size: 13px; }
 
 /* Chaque résultat est un grand bouton : affiche + titre + type/année + « Ajouter » */
 .resultat {
