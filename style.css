@@ -547,6 +547,7 @@ h1, h2 { color: var(--texte); }
 .panneau-haut[open] #vue-menu .ligne-reglage:nth-child(3) { animation-delay: 220ms; }
 .panneau-haut[open] #vue-menu .ligne-reglage:nth-child(4) { animation-delay: 270ms; }
 .panneau-haut[open] #vue-menu .ligne-reglage:nth-child(5) { animation-delay: 270ms; }
+.panneau-haut[open] #vue-menu .ligne-reglage:nth-child(6) { animation-delay: 270ms; }
 @keyframes apparaitre { from { opacity: 0; transform: translateY(-8px); } }
 
 /* Boutons ronds des panneaux (retour, fermer) : 44 px, bleu pâle */
@@ -949,6 +950,7 @@ html.verrou body { overflow: hidden; }
   color: var(--texte);
 }
 #formulaire-cle-rawg { margin-top: 16px; }
+#formulaire-relais .etiquette { display: block; margin: 0 4px 6px; }
 
 /* ---------- Fenêtre de confirmation de l'import ---------- */
 #fenetre-import {
@@ -1011,6 +1013,10 @@ form.edition textarea {
 }
 .bouton-coller .icone-svg { width: 20px; height: 20px; color: var(--bleu); }
 .message-coller { margin: 0 4px; font-size: 13px; }
+/* « Importer depuis le lien » : contour bleu, sur toute la largeur */
+.bouton-importer-lien { margin-top: 0; }
+.bouton-importer-lien:disabled { opacity: 0.6; cursor: progress; }
+#message-import { margin: 0; }
 
 /* Sur la carte : icône lien de 44 px (zone d'appui), entre le texte et la case */
 .carte-lien {

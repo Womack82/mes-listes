@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.9";
+const VERSION = "v1.10";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -287,7 +287,8 @@ function creerCarte(el, avecDate = false) {
     date.textContent = quand;
     textes.append(date);
   }
-  corps.append(creerVignette(el.affiche, el.type), textes);
+  // Vignette : l'affiche (films, séries), ou la première photo d'une fiche
+  corps.append(creerVignette(el.affiche || (fiche && el.images ? el.images[0] : null), el.type), textes);
 
   // Case ronde : une vraie case à cocher, cachée, et un rond dessiné à côté.
   // Le <label> autour fait 44 px pour que le doigt ne la rate pas.
@@ -372,7 +373,9 @@ function domaine(lien) {
 // infos (facultatif) :
 // - TMDB (films, séries) : { annee, affiche, idTmdb } (+ idImdb, cherché juste après)
 // - RAWG (jeux)          : { annee, idRawg } (pas de jaquette, volontairement)
-// - recette              : { lien, note } (tous les deux facultatifs)
+// - recette, cocktail    : { lien, note } (tous les deux facultatifs)
+//                          + les champs trouvés par « Importer » (CHAMPS_FICHE :
+//                          photos, ingrédients, étapes, portions, temps…)
 function ajouter(titre, type, infos = null) {
   const el = {
     id: Date.now().toString(), // identifiant unique basé sur l'heure
@@ -387,6 +390,13 @@ function ajouter(titre, type, infos = null) {
     if (infos.idRawg) el.idRawg = infos.idRawg;
     if (infos.lien) el.lien = infos.lien;
     if (infos.note) el.note = infos.note;
+    if (estFiche(type)) {
+      for (const cle of CHAMPS_FICHE) {
+        const valeur = infos[cle];
+        if (valeur === undefined || valeur === "" || (Array.isArray(valeur) && valeur.length === 0)) continue;
+        el[cle] = valeur;
+      }
+    }
   }
   elements.push(el);
   sauvegarder();
@@ -642,6 +652,7 @@ const VUES = {
   autres: { titre: "Anciens « Autre »", bloc: document.getElementById("vue-autres") },
   sauvegarde: { titre: "Sauvegarde", bloc: document.getElementById("vue-sauvegarde") },
   cles: { titre: "Clés API", bloc: document.getElementById("vue-cles") },
+  relais: { titre: "Import de recettes", bloc: document.getElementById("vue-relais") },
 };
 
 // Montre une seule vue du panneau ; la flèche de retour hors du menu
@@ -687,6 +698,9 @@ const zoneRecette = document.getElementById("zone-recette");
 const champLien = document.getElementById("champ-lien");
 const champNote = document.getElementById("champ-note");
 const messageColler = document.getElementById("message-coller");
+// Recette, cocktail : « Importer depuis le lien »
+const boutonImporterLien = document.getElementById("bouton-importer-lien");
+const messageImport = document.getElementById("message-import");
 
 // Catégorie choisie dans le menu (film, serie, jeu, recette)
 let categorieAjout = "film";
@@ -788,6 +802,7 @@ function ouvrirAjout(type) {
   champLien.value = "";
   champNote.value = "";
   messageColler.hidden = true;
+  reinitialiserImport();
   masquerRecherche();
   // Jeu sans clé RAWG : saisie manuelle tout de suite
   if (type === "jeu" && lireCleRawg() === "") passerJeuxEnManuel(true);
@@ -801,6 +816,7 @@ function ouvrirAjout(type) {
 
 function fermerAjout() {
   masquerRecherche();
+  reinitialiserImport();
   feuilleAjout.close();
 }
 
@@ -872,6 +888,11 @@ function ajouterTelQuel() {
       return;
     }
     infos = { lien, note: champNote.value.trim().slice(0, LONGUEUR_MAX_NOTE) };
+    // Recette importée depuis ce même lien : on garde tout ce qui a été trouvé
+    // (photos, ingrédients, étapes, portions, temps)
+    if (recetteImportee && recetteImportee.lien === lien) {
+      for (const cle of CHAMPS_FICHE) infos[cle] = recetteImportee[cle];
+    }
   }
   if (titre === "") {
     champTitre.focus(); // rien d'écrit : on remet simplement le curseur
@@ -924,6 +945,11 @@ document.getElementById("bouton-coller").addEventListener("click", async () => {
 // proposer un titre à partir d'une adresse à moitié écrite.)
 champLien.addEventListener("input", (evenement) => {
   messageColler.hidden = true;
+  // Le lien a changé : ce qui avait été importé ne correspond plus
+  if (recetteImportee && lienValide(champLien.value) !== recetteImportee.lien) {
+    recetteImportee = null;
+    messageImport.hidden = true;
+  }
   if (evenement.inputType === "insertFromPaste") {
     const lien = lienValide(champLien.value);
     if (lien) proposerTitre(lien);
@@ -933,6 +959,93 @@ champLien.addEventListener("change", () => {
   const lien = lienValide(champLien.value);
   if (lien) proposerTitre(lien);
 });
+
+// --- Recette, cocktail : « Importer depuis le lien » ---
+// 1. l'app demande la page au relais (Réglages → Import de recettes) ;
+// 2. recettes.js cherche le bloc JSON-LD « Recipe » dans le HTML ;
+// 3. le titre est rempli et un résumé s'affiche ; rien n'est enregistré
+//    tant qu'on n'a pas touché « Ajouter ».
+// En cas d'échec (pas de relais, hors ligne, site qui refuse, pas de
+// recette), un message simple : on peut toujours ajouter à la main.
+const CLE_RELAIS = "mes-listes-relais";
+const DELAI_IMPORT = 12000; // 12 s : le relais abandonne lui-même au bout de 8 s
+const TEXTE_BOUTON_IMPORT = "Importer depuis le lien";
+const MESSAGE_PAS_DE_RECETTE = "Je n'ai pas trouvé de recette sur cette page. Vous pouvez l'ajouter à la main.";
+
+// Ce qu'« Importer » a trouvé, en attendant « Ajouter » : { lien, titre, images, … }
+let recetteImportee = null;
+// Numéro du dernier import : une réponse qui arrive après la fermeture du
+// calque (ou après un nouvel import) est ignorée
+let numeroImport = 0;
+
+function reinitialiserImport() {
+  numeroImport++;
+  recetteImportee = null;
+  messageImport.hidden = true;
+  boutonImporterLien.disabled = false;
+  boutonImporterLien.textContent = TEXTE_BOUTON_IMPORT;
+}
+
+async function importerDepuisLien() {
+  messageImport.hidden = true;
+  messageColler.hidden = true;
+  const lien = lienValide(champLien.value);
+  if (!lien) {
+    afficherMessage("Collez d'abord le lien de la page (il doit commencer par http:// ou https://).", false, messageImport);
+    champLien.focus();
+    return;
+  }
+  const relais = lireCle(CLE_RELAIS);
+  if (relais === "") {
+    afficherMessage("Import impossible : ajoutez l'adresse du relais dans Réglages → Import de recettes. Vous pouvez ajouter la recette à la main.", false, messageImport);
+    return;
+  }
+
+  const numero = ++numeroImport;
+  recetteImportee = null;
+  boutonImporterLien.disabled = true;
+  boutonImporterLien.textContent = "Import en cours…";
+
+  let recette = null;
+  try {
+    const adresse = new URL(relais);
+    adresse.searchParams.set("url", lien);
+    const controle = new AbortController();
+    const minuteur = setTimeout(() => controle.abort(), DELAI_IMPORT);
+    try {
+      const reponse = await fetch(adresse, { signal: controle.signal, credentials: "omit", cache: "no-store" });
+      if (reponse.ok) recette = extraireRecette(await reponse.text(), lien);
+    } finally {
+      clearTimeout(minuteur);
+    }
+  } catch {
+    recette = null; // relais injoignable, délai dépassé, hors ligne…
+  }
+  if (numero !== numeroImport) return; // calque fermé ou autre import lancé entre-temps
+
+  boutonImporterLien.disabled = false;
+  boutonImporterLien.textContent = TEXTE_BOUTON_IMPORT;
+  if (!recette) {
+    afficherMessage(MESSAGE_PAS_DE_RECETTE, false, messageImport);
+    return;
+  }
+
+  recetteImportee = { lien, ...recette };
+  // Titre : on remplace un champ vide ou le nom du site proposé automatiquement,
+  // jamais un titre tapé à la main
+  const titreActuel = champTitre.value.trim();
+  if (recette.titre && (titreActuel === "" || titreActuel === domaine(lien))) {
+    champTitre.value = recette.titre;
+  }
+  const nbEtapes = recette.etapes.filter((e) => !e.startsWith("# ")).length;
+  const trouve = [
+    recette.ingredients.length ? pluriel(recette.ingredients.length, "ingrédient") : "",
+    nbEtapes ? pluriel(nbEtapes, "étape") : "",
+    recette.images.length ? pluriel(recette.images.length, "photo") : "",
+  ].filter(Boolean).join(", ");
+  afficherMessage(`✓ Recette trouvée${trouve ? ` : ${trouve}` : ""}. Touchez « Ajouter » pour l'enregistrer.`, true, messageImport);
+}
+boutonImporterLien.addEventListener("click", importerDepuisLien);
 
 // Touche Entrée dans le titre ou le lien. Le formulaire a maintenant
 // plusieurs champs : le navigateur ne l'envoie plus tout seul, on le fait ici.
@@ -971,8 +1084,11 @@ const FORMAT_NOM = "mes-listes";
 // Version 5 : + lien et note des recettes (facultatifs).
 // Version 6 : + type « cocktail » ; recettes et cocktails ne sont jamais
 // « terminés » (une ancienne recette cochée est remise en fiche à l'import).
-// L'app sait lire les six.
-const FORMAT_VERSION = 6;
+// Version 7 : + contenu des fiches (facultatif) : photos (adresses),
+// ingrédients, étapes, portions, temps de préparation et de cuisson,
+// verre, méthode et alcool de base (cocktails).
+// L'app sait lire les sept.
+const FORMAT_VERSION = 7;
 
 const boutonExporter = document.getElementById("bouton-exporter");
 const boutonImporter = document.getElementById("bouton-importer");
@@ -1124,6 +1240,9 @@ function verifierFichier(donnees) {
       }
       if (el.note.trim() !== "") propre.note = el.note.trim();
     }
+    // Contenu des fiches (version 7, facultatif) : vérifié dans recettes.js.
+    // Gardé aussi pour les autres types, comme le lien et la note.
+    Object.assign(propre, verifierChampsFiche(el, numero));
     return propre;
   });
 
@@ -1349,6 +1468,52 @@ brancherCle("TMDB", CLE_TMDB, "cle", (cle) => appelerTmdb("/authentication", {},
 // RAWG n'a pas d'adresse pour tester une clé : on fait une mini-recherche
 brancherCle("RAWG", CLE_RAWG, "cle-rawg", (cle) => appelerRawg("/games", { page_size: 1 }, cle));
 
+// --- 7 ter. L'adresse du relais (import de recettes) ----------
+// Gardée uniquement sur l'appareil (localStorage), comme les clés.
+// Ce n'est pas un secret : on la réaffiche dans le champ pour la vérifier.
+{
+  const formulaireRelais = document.getElementById("formulaire-relais");
+  const champRelais = document.getElementById("champ-relais");
+  const etatRelais = document.getElementById("etat-relais");
+  const messageRelais = document.getElementById("message-relais");
+  const boutonEffacerRelais = document.getElementById("bouton-effacer-relais");
+
+  const afficherEtatRelais = () => {
+    const adresse = lireCle(CLE_RELAIS);
+    etatRelais.textContent = adresse
+      ? "✅ Un relais est enregistré sur cet appareil : l'import de recettes est activé."
+      : "Aucun relais enregistré sur cet appareil : l'import est désactivé (l'ajout à la main reste possible).";
+    champRelais.value = adresse;
+    boutonEffacerRelais.hidden = !adresse;
+  };
+
+  formulaireRelais.addEventListener("submit", (evenement) => {
+    evenement.preventDefault();
+    let adresse = null;
+    try {
+      adresse = new URL(champRelais.value.trim());
+    } catch {
+      // pas une adresse
+    }
+    if (!adresse || adresse.protocol !== "https:") {
+      afficherMessage("L'adresse doit commencer par https:// (exemple : https://mes-listes-relais.ton-pseudo.workers.dev).", false, messageRelais);
+      return;
+    }
+    // On ne garde que le site et le chemin (pas de « ?… » ni de « #… »)
+    localStorage.setItem(CLE_RELAIS, adresse.origin + adresse.pathname);
+    afficherEtatRelais();
+    afficherMessage("Adresse enregistrée. L'import de recettes est activé.", true, messageRelais);
+  });
+
+  boutonEffacerRelais.addEventListener("click", () => {
+    localStorage.removeItem(CLE_RELAIS);
+    afficherEtatRelais();
+    afficherMessage("Adresse effacée de cet appareil.", true, messageRelais);
+  });
+
+  afficherEtatRelais();
+}
+
 // --- 7 bis. Les liens IMDb des films et séries ----------------
 // La recherche TMDB ne donne pas l'identifiant IMDb (ex : "tt1375666").
 // On le demande à TMDB à part, une fois, puis on le garde avec l'élément.
@@ -1499,6 +1664,9 @@ function creerVignette(affiche, type) {
   image.src = affiche;
   image.alt = "";
   image.loading = "lazy";
+  // Le site de la photo ne sait pas qu'elle est affichée dans l'app
+  // (certains sites refusent aussi leurs photos quand on l'indique)
+  image.referrerPolicy = "no-referrer";
   image.addEventListener("error", () => image.replaceWith(vide));
   return image;
 }

@@ -7,7 +7,7 @@
 // téléphone continuera d'utiliser l'ancienne copie :
 // chaque changement ajoute 1 au second numéro : v1.1 → v1.2 → v1.3…
 // ⚠️ Change aussi VERSION en haut de app.js (affichée à côté du logo).
-const NOM_CACHE = "mes-listes-v1.9";
+const NOM_CACHE = "mes-listes-v1.10";
 
 // ⚠️ Si un seul de ces fichiers est introuvable, rien n'est mis en cache
 // (l'app ne marchera pas hors ligne) : vérifier chaque chemin.
@@ -15,6 +15,7 @@ const FICHIERS = [
   "./",
   "index.html",
   "style.css",
+  "recettes.js",
   "app.js",
   "manifest.json",
   // Logo et icônes (dossier icons)
@@ -49,7 +50,7 @@ self.addEventListener("activate", (evenement) => {
 // À chaque demande de fichier : on sert la copie en cache si elle existe,
 // sinon on va la chercher sur internet.
 self.addEventListener("fetch", (evenement) => {
-  // Les demandes vers d'autres sites (TMDB, RAWG : recherche, affiches) ne passent
+  // Les demandes vers d'autres sites (TMDB, RAWG, relais des recettes, photos) ne passent
   // pas par le cache : le navigateur s'en occupe normalement.
   if (new URL(evenement.request.url).origin !== self.location.origin) return;
   evenement.respondWith(
