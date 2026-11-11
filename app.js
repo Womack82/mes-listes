@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.5";
+const VERSION = "v1.6";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -44,16 +44,27 @@ let elements = charger(CLE_STOCKAGE);
 // { titre: "Inception", type: "film", dateSuppression: "2026-11-09T14:30:00.000Z" }
 let supprimes = charger(CLE_SUPPRIMES);
 
-// Le filtre actuellement choisi ("tous", "film", "serie", ...)
-let filtreActif = "tous";
+// La page affichée : "accueil" ou une catégorie ("film", "serie", "jeu", "recette")
+let pageActive = "accueil";
 
 // On récupère les morceaux de la page dont on a besoin
 // Le calque « Ajouter » : formulaire et champ titre
 const formulaire = document.getElementById("formulaire-ajout");
 const champTitre = document.getElementById("champ-titre");
+// En-tête, pages et barre du bas
+const entetePetit = document.getElementById("entete-petit");
+const enteteGrand = document.getElementById("entete-grand");
+const boutonAccueil = document.getElementById("bouton-accueil");
+const pageAccueil = document.getElementById("page-accueil");
+const pageCategorie = document.getElementById("page-categorie");
+const carres = document.querySelectorAll(".carre");
+const listeRecents = document.getElementById("liste-recents");
+const recentsVide = document.getElementById("recents-vide");
 const liste = document.getElementById("liste");
 const messageVide = document.getElementById("message-vide");
-const boutonsFiltre = document.querySelectorAll("#filtres button");
+const mentionTmdb = document.getElementById("mention-tmdb");
+const mentionRawg = document.getElementById("mention-rawg");
+const onglets = document.querySelectorAll(".onglet");
 // Dans le panneau Réglages
 const listeFaits = document.getElementById("liste-faits");
 const badgeFaits = document.getElementById("badge-faits");
@@ -61,6 +72,9 @@ const faitsVide = document.getElementById("faits-vide");
 const listeSupprimes = document.getElementById("liste-supprimes");
 const badgeSupprimes = document.getElementById("badge-supprimes");
 const supprimesVide = document.getElementById("supprimes-vide");
+const listeAutres = document.getElementById("liste-autres");
+const badgeAutres = document.getElementById("badge-autres");
+const ligneAutres = document.getElementById("ligne-autres");
 
 // Nom du type affiché sous le titre des cartes
 const NOMS_SIMPLES = { film: "Film", serie: "Série", jeu: "Jeu", recette: "Recette", autre: "Autre" };
@@ -88,48 +102,130 @@ function creerIcone(trace, classe = "icone-svg") {
   return svg;
 }
 
-// Garde l'élément s'il correspond au filtre choisi
-function correspondAuFiltre(el) {
-  return filtreActif === "tous" || el.type === filtreActif;
+// Les 4 catégories de la navigation (« Autre » n'en fait plus partie :
+// ses anciens éléments sont gardés et visibles dans Réglages → Autres)
+const NOMS_PLURIELS = { film: "Films", serie: "Séries", jeu: "Jeux", recette: "Recettes" };
+// En-tête d'une page catégorie : « 12 à voir », « 3 à jouer »…
+const VERBES = { film: "à voir", serie: "à voir", jeu: "à jouer", recette: "à cuisiner" };
+
+// Date d'ajout d'un élément : son identifiant est l'heure de création
+// (Date.now()). Renvoie null si l'identifiant n'est pas une date.
+function dateAjout(el) {
+  const temps = Number(el.id);
+  return Number.isFinite(temps) && temps > 1e12 ? new Date(temps) : null;
 }
 
-// --- 3. Afficher les listes ----------------------------------
-// Écran principal : seulement les éléments à faire (selon le filtre).
-// Panneau Réglages : tous les terminés et tous les supprimés (sans filtre).
-function afficher() {
-  liste.innerHTML = "";
-  listeFaits.innerHTML = "";
-  listeSupprimes.innerHTML = "";
+// « Ajouté aujourd'hui », « Ajouté hier », « Ajouté il y a 5 jours »
+function texteAjout(el) {
+  const date = dateAjout(el);
+  if (!date) return "";
+  const minuit = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const jours = Math.round((minuit(new Date()) - minuit(date)) / 86400000);
+  if (jours <= 0) return "Ajouté aujourd'hui";
+  if (jours === 1) return "Ajouté hier";
+  return `Ajouté il y a ${jours} jours`;
+}
 
-  const visibles = elements.filter(correspondAuFiltre);
-  const aFaire = visibles.filter((el) => !el.fait);
+// --- 3. Afficher les pages et les listes ----------------------
+// Accueil : 4 carrés (nombre à faire par catégorie) + 4 derniers ajoutés.
+// Page catégorie : les éléments à faire de cette catégorie.
+// Panneau Réglages : terminés, supprimés, anciens « Autre ».
+// animer = true : les cartes apparaissent en fondu, l'une après l'autre
+// (seulement en arrivant sur une page, pas après chaque coche).
+function afficher(animer = false) {
+  const aFaire = elements.filter((el) => !el.fait);
   const faits = elements.filter((el) => el.fait);
-  // Les supprimés, du plus récent au plus ancien
-  const supprimesRecents = [...supprimes].reverse();
+  const autres = aFaire.filter((el) => el.type === "autre");
+  const supprimesRecents = [...supprimes].reverse(); // le plus récent en haut
 
-  for (const el of aFaire) liste.append(creerCarte(el));
-  for (const el of faits) listeFaits.append(creerCarte(el));
-  for (const el of supprimesRecents) listeSupprimes.append(creerLigneSupprimee(el));
+  // Carrés de l'accueil
+  for (const carre of carres) {
+    carre.querySelector(".carre-nombre").textContent =
+      aFaire.filter((el) => el.type === carre.dataset.type).length;
+  }
 
-  // Badges des lignes « Terminés » et « Supprimés » du panneau Réglages
+  // Derniers ajoutés (toutes catégories), du plus récent au plus ancien
+  const recents = [...aFaire]
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
+    .slice(0, 4);
+  listeRecents.replaceChildren(...recents.map((el) => creerCarte(el, true)));
+  recentsVide.hidden = recents.length > 0;
+
+  // Page catégorie
+  liste.innerHTML = "";
+  if (pageActive !== "accueil") {
+    const toutes = elements.filter((el) => el.type === pageActive);
+    const visibles = aFaire.filter((el) => el.type === pageActive);
+    for (const el of visibles) liste.append(creerCarte(el));
+    messageVide.textContent = toutes.length === 0
+      ? "Rien ici pour l'instant. Appuie sur + pour ajouter."
+      : "Tout est fait ! 🎉";
+    messageVide.hidden = visibles.length > 0;
+    enteteGrand.textContent = `${visibles.length} ${VERBES[pageActive]}`;
+  }
+
+  // Panneau Réglages
+  listeFaits.replaceChildren(...faits.map((el) => creerCarte(el)));
+  listeSupprimes.replaceChildren(...supprimesRecents.map(creerLigneSupprimee));
+  listeAutres.replaceChildren(...autres.map((el) => creerCarte(el)));
   badgeFaits.textContent = faits.length;
   badgeSupprimes.textContent = supprimes.length;
+  badgeAutres.textContent = autres.length;
+  ligneAutres.hidden = autres.length === 0;
   faitsVide.hidden = faits.length > 0;
   supprimesVide.hidden = supprimes.length > 0;
 
-  // Message quand il ne reste rien à faire
-  if (visibles.length === 0) {
-    messageVide.textContent = "Rien ici pour l'instant.";
-  } else {
-    messageVide.textContent = "Tout est fait ! 🎉";
+  if (animer && !sansAnimation.matches) {
+    const blocs = pageActive === "accueil"
+      ? [...carres, ...listeRecents.children]
+      : [...liste.children];
+    blocs.forEach((bloc, rang) => {
+      bloc.style.setProperty("--rang", Math.min(rang, 8));
+      bloc.classList.remove("apparition");
+      void bloc.offsetWidth; // relance l'animation si le bloc l'avait déjà
+      bloc.classList.add("apparition");
+    });
   }
-  messageVide.hidden = aFaire.length > 0;
+}
+
+// Change de page : "accueil" ou une catégorie ("film", "serie"…)
+function allerA(page) {
+  pageActive = page;
+  const accueil = page === "accueil";
+  pageAccueil.hidden = !accueil;
+  pageCategorie.hidden = accueil;
+  enteteSalut();
+  // Bouton Accueil bleu sur l'accueil ; catégorie surlignée dans la barre
+  boutonAccueil.classList.toggle("actif", accueil);
+  boutonAccueil.toggleAttribute("aria-current", accueil);
+  for (const onglet of onglets) {
+    const actif = onglet.dataset.type === page;
+    onglet.classList.toggle("actif", actif);
+    onglet.toggleAttribute("aria-current", actif);
+  }
+  // Mentions TMDB (films, séries) ou RAWG (jeux) en bas de la page
+  mentionTmdb.hidden = page !== "film" && page !== "serie";
+  mentionRawg.hidden = page !== "jeu";
+  window.scrollTo(0, 0);
+  afficher(true);
+}
+
+// Petit texte de l'en-tête : « Bonjour » ou le nom de la catégorie.
+// Grand texte : « Womack » sur l'accueil (sur une catégorie, le nombre
+// à faire est écrit par afficher()).
+function enteteSalut() {
+  if (pageActive === "accueil") {
+    entetePetit.textContent = "Bonjour";
+    enteteGrand.textContent = "Womack";
+  } else {
+    entetePetit.textContent = NOMS_PLURIELS[pageActive];
+  }
 }
 
 // Fabrique la carte <li> d'un élément :
-// vignette + titre + type/année (un appui ouvre le panneau d'actions)
-// et à droite une case ronde pour cocher.
-function creerCarte(el) {
+// vignette + titre + type/année (+ date d'ajout sur l'accueil) ; un appui
+// ouvre le panneau d'actions. À droite, une case ronde pour cocher.
+function creerCarte(el, avecDate = false) {
   const li = document.createElement("li");
   li.className = "carte";
   li.dataset.id = el.id; // pour retrouver la carte et la faire glisser (animations)
@@ -154,6 +250,15 @@ function creerCarte(el) {
   const textes = document.createElement("span");
   textes.className = "carte-textes";
   textes.append(titre, details);
+
+  // « Ajouté hier » (en bleu), sur l'accueil seulement
+  const quand = avecDate ? texteAjout(el) : "";
+  if (quand) {
+    const date = document.createElement("span");
+    date.className = "carte-date";
+    date.textContent = quand;
+    textes.append(date);
+  }
   corps.append(creerVignette(el.affiche, el.type), textes);
 
   // Case ronde : une vraie case à cocher, cachée, et un rond dessiné à côté.
@@ -320,8 +425,14 @@ let idActions = null;
 let minuteurConfirmation = null;
 
 // Le menu des types du panneau : « 🎬 Film », « 📺 Série »…
-for (const type of Object.keys(NOMS_SIMPLES)) {
-  editionType.append(new Option(`${EMOJIS[type]} ${NOMS_SIMPLES[type]}`, type));
+// « Autre » n'est proposé que pour un élément qui est déjà « Autre »
+// (catégorie retirée : on ne peut plus en créer, mais on peut la garder).
+function remplirTypes(typeActuel) {
+  editionType.replaceChildren();
+  for (const type of Object.keys(NOMS_SIMPLES)) {
+    if (type === "autre" && typeActuel !== "autre") continue;
+    editionType.append(new Option(`${EMOJIS[type]} ${NOMS_SIMPLES[type]}`, type));
+  }
 }
 
 // Remet le bouton « Supprimer » dans son état normal
@@ -357,6 +468,7 @@ actionsModifier.addEventListener("click", () => {
   if (!el) return;
   annulerConfirmation();
   editionTitre.value = el.titre;
+  remplirTypes(el.type);
   editionType.value = el.type;
   actionsBoutons.hidden = true;
   actionsEdition.hidden = false;
@@ -415,6 +527,7 @@ const VUES = {
   menu: { titre: "Réglages", bloc: document.getElementById("vue-menu") },
   faits: { titre: "Terminés", bloc: document.getElementById("vue-faits") },
   supprimes: { titre: "Supprimés", bloc: document.getElementById("vue-supprimes") },
+  autres: { titre: "Autres", bloc: document.getElementById("vue-autres") },
   sauvegarde: { titre: "Sauvegarde", bloc: document.getElementById("vue-sauvegarde") },
   cles: { titre: "Clés API", bloc: document.getElementById("vue-cles") },
 };
@@ -438,7 +551,17 @@ const fermerReglages = () => panneauReglages.close();
 document.getElementById("reglages-fermer").addEventListener("click", fermerReglages);
 fermerSurVoile(panneauReglages, fermerReglages);
 
-// --- 5. Réagir aux actions de l'utilisateur ------------------
+// --- 4 quater bis. Navigation : accueil, catégories ----------
+boutonAccueil.addEventListener("click", () => allerA("accueil"));
+for (const carre of carres) {
+  carre.querySelector(".carre-pastille").append(creerIcone(ICONES_TYPES[carre.dataset.type]));
+  carre.addEventListener("click", () => allerA(carre.dataset.type));
+}
+for (const onglet of onglets) {
+  onglet.querySelector(".onglet-icone").append(creerIcone(ICONES_TYPES[onglet.dataset.type]));
+  onglet.addEventListener("click", () => allerA(onglet.dataset.type));
+}
+
 // --- 4 quater. Ajouter un élément : menu des catégories, puis calque de saisie ---
 const feuilleAjout = document.getElementById("feuille-ajout");
 const ajoutIcone = document.getElementById("ajout-icone");
@@ -448,7 +571,7 @@ const zoneResultats = document.getElementById("zone-resultats");
 const ajoutTelQuel = document.getElementById("ajout-tel-quel");
 const mentionSource = document.getElementById("mention-source");
 
-// Catégorie choisie dans le menu (film, serie, jeu, recette, autre)
+// Catégorie choisie dans le menu (film, serie, jeu, recette)
 let categorieAjout = "film";
 function categorieChoisie() {
   return categorieAjout;
@@ -460,14 +583,12 @@ const TITRES_AJOUT = {
   serie: "Ajouter une série",
   jeu: "Ajouter un jeu",
   recette: "Ajouter une recette",
-  autre: "Ajouter un élément",
 };
 const INDICATIONS = {
   film: "Nom du film",
   serie: "Nom de la série",
   jeu: "Nom du jeu",
   recette: "Nom de la recette",
-  autre: "Ce qu'il ne faut pas oublier",
 };
 
 // Mention de la source des données, en bas de la liste de résultats
@@ -528,7 +649,7 @@ function ouvrirAjout(type) {
   ajoutTitre.textContent = TITRES_AJOUT[type];
   champTitre.placeholder = INDICATIONS[type];
   champTitre.value = "";
-  // Film, Série, Jeu : liste de résultats ; Recette, Autre : bouton « Ajouter »
+  // Film, Série, Jeu : liste de résultats ; Recette : bouton « Ajouter »
   zoneResultats.hidden = !avecRecherche;
   ajoutDirect.hidden = avecRecherche;
   // Avec recherche, le calque prend toute la hauteur visible (la liste
@@ -575,7 +696,12 @@ document.getElementById("menu-fermer").addEventListener("click", fermerMenu);
 // boutons (pointer-events), ils arrivent donc sur le <dialog> lui-même
 fermerSurVoile(menuCategories, fermerMenu);
 
-document.getElementById("bouton-ajouter").addEventListener("click", ouvrirMenu);
+// Bouton + : sur l'accueil, menu des catégories ; sur une page catégorie,
+// saisie directe dans cette catégorie (pendant l'appui : le clavier s'ouvre)
+document.getElementById("bouton-ajouter").addEventListener("click", () => {
+  if (pageActive === "accueil") ouvrirMenu();
+  else ouvrirAjout(pageActive);
+});
 // Flèche de retour : on referme le calque et on revient au menu
 document.getElementById("ajout-retour").addEventListener("click", () => {
   fermerAjout();
@@ -607,7 +733,7 @@ function ajouterTelQuel() {
 // Touche Entrée du clavier :
 // - Film, Série, Jeu : lance la recherche tout de suite et ferme le clavier
 //   (pour voir tous les résultats) ;
-// - Recette, Autre : ajoute l'élément.
+// - Recette : ajoute l'élément.
 formulaire.addEventListener("submit", (evenement) => {
   evenement.preventDefault(); // empêche la page de se recharger
   if (sourcePourType(categorieChoisie())) {
@@ -620,17 +746,6 @@ formulaire.addEventListener("submit", (evenement) => {
 });
 ajoutDirect.addEventListener("click", ajouterTelQuel);
 ajoutTelQuel.addEventListener("click", ajouterTelQuel);
-
-for (const bouton of boutonsFiltre) {
-  bouton.addEventListener("click", () => {
-    filtreActif = bouton.dataset.type;
-    boutonsFiltre.forEach((b) => {
-      b.classList.toggle("actif", b === bouton);
-      b.setAttribute("aria-pressed", b === bouton); // annoncé aux lecteurs d'écran
-    });
-    afficher();
-  });
-}
 
 // --- 6. Sauvegarde : exporter et importer --------------------
 // Numéro de version du format du fichier. Si un jour on change la forme
@@ -1246,7 +1361,7 @@ champTitre.addEventListener("input", () => {
 // de l'app (c'est le comportement par défaut de <details>).
 localStorage.removeItem("mes-listes-section-ouverte"); // ancien réglage, devenu inutile
 document.getElementById("version").textContent = VERSION;
-afficher();
+allerA("accueil");
 completerImdbManquants();
 // Revenu en ligne (métro, avion…) : on complète ce qui manque encore
 window.addEventListener("online", completerImdbManquants);

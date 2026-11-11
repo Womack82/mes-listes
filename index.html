@@ -22,52 +22,88 @@
 </head>
 <body>
   <main>
-    <!-- En-tête : bouton Réglages à gauche, logo W au centre, rien à droite -->
+    <!-- En-tête : salutation (ou catégorie) à gauche, logo W au centre,
+         boutons Accueil et Réglages à droite -->
     <header class="entete">
-      <button type="button" id="bouton-reglages" class="bouton-rond" aria-label="Réglages">
-        <!-- Roue dentée -->
-        <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true">
-          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-      </button>
-      <!-- Logo W (fichier icons/logo-w.svg). Le texte alternatif « Mes listes »
-           est lu par les lecteurs d'écran. width/height réservent la place
-           avant le chargement de l'image (650 × 345 réduit à 54 px de large). -->
-      <h1 class="titre-app">
-        <img class="logo" src="icons/logo-w.svg" alt="Mes listes" width="54" height="29">
+      <div class="entete-textes">
+        <p id="entete-petit" class="entete-petit">Bonjour</p>
+        <h1 id="entete-grand" class="entete-grand">Womack</h1>
+      </div>
+      <!-- Logo W (icons/logo-w.svg), en filigrane. 650 × 345 réduit à 58 px -->
+      <div class="titre-app">
+        <img class="logo" src="icons/logo-w.svg" alt="Mes listes" width="58" height="31">
         <span id="version" class="version"></span>
-      </h1>
-      <span aria-hidden="true"></span> <!-- case vide à droite, pour garder le logo au centre -->
+      </div>
+      <div class="entete-boutons">
+        <button type="button" id="bouton-accueil" class="bouton-entete" aria-label="Accueil">
+          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M3.5 11 12 3.8l8.5 7.2 M5.5 9.5V20h4.8v-5.5h3.4V20h4.8V9.5"/></svg>
+        </button>
+        <button type="button" id="bouton-reglages" class="bouton-entete" aria-label="Réglages">
+          <!-- Roue dentée -->
+          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
     </header>
 
-    <!-- Filtres par type, sur deux lignes de trois. data-type indique quel type afficher -->
-    <nav id="filtres" aria-label="Filtrer par type">
-      <button type="button" data-type="tous" class="actif" aria-pressed="true">Tous</button>
-      <button type="button" data-type="film" aria-pressed="false">🎬 Films</button>
-      <button type="button" data-type="serie" aria-pressed="false">📺 Séries</button>
-      <button type="button" data-type="jeu" aria-pressed="false">🎮 Jeux</button>
-      <button type="button" data-type="recette" aria-pressed="false">🍳 Recettes</button>
-      <button type="button" data-type="autre" aria-pressed="false">📌 Autres</button>
-    </nav>
+    <!-- Page d'accueil -->
+    <section id="page-accueil">
+      <!-- 4 carrés : nombre d'éléments à faire par catégorie (un appui ouvre la page) -->
+      <div class="carres">
+        <button type="button" class="carre verre" data-type="film">
+          <span class="carre-pastille"></span><span class="carre-nombre">0</span><span class="carre-libelle">Films</span>
+        </button>
+        <button type="button" class="carre verre" data-type="serie">
+          <span class="carre-pastille"></span><span class="carre-nombre">0</span><span class="carre-libelle">Séries</span>
+        </button>
+        <button type="button" class="carre verre" data-type="jeu">
+          <span class="carre-pastille"></span><span class="carre-nombre">0</span><span class="carre-libelle">Jeux</span>
+        </button>
+        <button type="button" class="carre verre" data-type="recette">
+          <span class="carre-pastille"></span><span class="carre-nombre">0</span><span class="carre-libelle">Recettes</span>
+        </button>
+      </div>
 
-    <!-- La liste des éléments à faire, remplie par app.js -->
-    <ul id="liste" class="liste"></ul>
-    <p id="message-vide" hidden></p>
+      <h2 class="titre-section">Derniers ajoutés</h2>
+      <ul id="liste-recents" class="liste"></ul>
+      <p id="recents-vide" class="aide vide" hidden>Rien à faire pour l'instant. Appuie sur + pour ajouter.</p>
+    </section>
 
+    <!-- Page d'une catégorie (Films, Séries, Jeux ou Recettes) -->
+    <section id="page-categorie" hidden>
+      <ul id="liste" class="liste"></ul>
+      <p id="message-vide" class="aide vide" hidden></p>
 
-    <!-- Mentions exigées par les conditions d'utilisation de TMDB et de RAWG
-         (RAWG demande un lien cliquable vers rawg.io) -->
-    <footer class="mentions">
-      <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">
-        <img src="icons/tmdb.svg" alt="TMDB" width="120" height="16">
-      </a>
-      <p lang="en">This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
-      <p>Films, séries et affiches : données fournies par TMDB.</p>
-      <p>Jeux vidéo : données fournies par
-        <a href="https://rawg.io/" target="_blank" rel="noopener">RAWG</a>.</p>
-    </footer>
+      <!-- Mentions exigées par les conditions d'utilisation de TMDB et de RAWG
+           (RAWG demande un lien cliquable vers rawg.io) -->
+      <footer id="mention-tmdb" class="mentions" hidden>
+        <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">
+          <img src="icons/tmdb.svg" alt="TMDB" width="120" height="16">
+        </a>
+        <p lang="en">This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+        <p>Films, séries et affiches : données fournies par TMDB.</p>
+      </footer>
+      <footer id="mention-rawg" class="mentions" hidden>
+        <p>Jeux vidéo : données fournies par
+          <a href="https://rawg.io/" target="_blank" rel="noopener">RAWG</a>.</p>
+      </footer>
+    </section>
   </main>
+
+  <!-- Barre du bas, flottante, sur toutes les pages :
+       Films, Séries | bouton + | Jeux, Recettes -->
+  <nav class="barre-bas" aria-label="Catégories">
+    <button type="button" class="onglet" data-type="film"><span class="onglet-icone"></span>Films</button>
+    <button type="button" class="onglet" data-type="serie"><span class="onglet-icone"></span>Séries</button>
+    <!-- Accueil : ouvre le menu des catégories. Page catégorie : ouvre la saisie -->
+    <button type="button" id="bouton-ajouter" class="bouton-plus" aria-label="Ajouter un élément">
+      <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button type="button" class="onglet" data-type="jeu"><span class="onglet-icone"></span>Jeux</button>
+    <button type="button" class="onglet" data-type="recette"><span class="onglet-icone"></span>Recettes</button>
+  </nav>
 
   <!-- Panneau Réglages : descend du haut, sur un voile sombre.
        <dialog> est une balise HTML pour les fenêtres par-dessus la page. -->
@@ -97,6 +133,16 @@
           <span id="badge-supprimes" class="badge">0</span>
           <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
         </button>
+        <!-- Anciens éléments « Autre » (catégorie retirée) : visible seulement s'il en reste -->
+        <button type="button" id="ligne-autres" class="ligne-reglage" data-vue="autres" hidden>
+          <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M9 3h6 M10 3v6l-3 4h10l-3-4V3 M12 13v8"/></svg></span>
+          <span class="ligne-textes">
+            <span class="ligne-titre">Autres</span>
+            <span class="ligne-sous-titre">Éléments de l'ancienne catégorie « Autre »</span>
+          </span>
+          <span id="badge-autres" class="badge">0</span>
+          <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
         <button type="button" class="ligne-reglage" data-vue="sauvegarde">
           <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span>
           <span class="ligne-textes">
@@ -113,6 +159,21 @@
           </span>
           <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
         </button>
+        <!-- Mentions exigées par TMDB et RAWG -->
+        <footer class="mentions">
+          <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">
+            <img src="icons/tmdb.svg" alt="TMDB" width="120" height="16">
+          </a>
+          <p lang="en">This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+          <p>Jeux vidéo : données fournies par
+            <a href="https://rawg.io/" target="_blank" rel="noopener">RAWG</a>.</p>
+        </footer>
+      </div>
+
+      <!-- Autres : éléments « Autre » à faire (cochables, modifiables) -->
+      <div id="vue-autres" hidden>
+        <ul id="liste-autres" class="liste"></ul>
+        <p class="aide">Cette catégorie n'existe plus : « Modifier » permet de ranger un élément dans une autre catégorie.</p>
       </div>
 
       <!-- Terminés : cartes cochées (décocher = remettre à faire) -->
@@ -204,22 +265,17 @@
     </div>
   </dialog>
 
-  <!-- Bouton + flottant, en bas à droite : ouvre le calque « Ajouter » -->
-  <button type="button" id="bouton-ajouter" class="bouton-flottant" aria-label="Ajouter un élément">
-    <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-  </button>
-
-  <!-- Menu des catégories, ouvert par le bouton + : 5 boutons ronds en colonne,
-       au-dessus d'une copie du bouton + qui pivote et devient une croix -->
+  <!-- Menu des catégories (bouton + de l'accueil) : 4 boutons ronds dans une
+       carte en verre au-dessus de la barre, et une copie du bouton + qui
+       pivote et devient une croix -->
   <dialog id="menu-categories" class="menu-categories" aria-label="Choisir une catégorie">
-    <div class="menu-colonne">
-      <button type="button" class="choix-menu" data-type="film"><span class="pastille-menu">Film</span><span class="rond-menu"></span></button>
-      <button type="button" class="choix-menu" data-type="serie"><span class="pastille-menu">Série</span><span class="rond-menu"></span></button>
-      <button type="button" class="choix-menu" data-type="jeu"><span class="pastille-menu">Jeu</span><span class="rond-menu"></span></button>
-      <button type="button" class="choix-menu" data-type="recette"><span class="pastille-menu">Recette</span><span class="rond-menu"></span></button>
-      <button type="button" class="choix-menu" data-type="autre"><span class="pastille-menu">Autre</span><span class="rond-menu"></span></button>
+    <div class="menu-carte verre-flou">
+      <button type="button" class="choix-menu" data-type="film"><span class="rond-menu"></span>Film</button>
+      <button type="button" class="choix-menu" data-type="serie"><span class="rond-menu"></span>Série</button>
+      <button type="button" class="choix-menu" data-type="jeu"><span class="rond-menu"></span>Jeu</button>
+      <button type="button" class="choix-menu" data-type="recette"><span class="rond-menu"></span>Recette</button>
     </div>
-    <button type="button" id="menu-fermer" class="bouton-flottant bouton-croix" aria-label="Fermer le menu">
+    <button type="button" id="menu-fermer" class="bouton-plus bouton-croix" aria-label="Fermer le menu">
       <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   </dialog>
@@ -239,7 +295,7 @@
         </button>
       </div>
 
-      <!-- Champ de saisie ; « Ajouter » à droite pour Recette et Autre -->
+      <!-- Champ de saisie ; « Ajouter » à droite pour Recette -->
       <div class="ligne-saisie">
         <input id="champ-titre" type="text" aria-labelledby="ajout-titre"
                autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"
