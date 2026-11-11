@@ -19,6 +19,9 @@ const LIMITES_FICHE = {
   champCourt: 100, // verre, méthode, alcool de base
   portionsMax: 100,
   minutesMax: 10000,
+  longueurUnite: 30,      // « c. à soupe », « g »… (ingrédients détaillés)
+  quantiteMax: 100000,
+  longueurPhoto: 400000,  // photo gardée dans la fiche (texte base64, ~300 Ko)
 };
 
 // Renvoie l'adresse si c'est un lien http(s), sinon null
@@ -369,6 +372,23 @@ function verifierChampsFiche(el, numero) {
     const liste = listeDeTextes(el.ingredients, LIMITES_FICHE.ingredients, LIMITES_FICHE.longueurIngredient, "d'ingrédients");
     if (liste.length) propre.ingredients = liste;
   }
+  // Ingrédients détaillés (version 8) : une case par ligne d'ingrédient,
+  // { q, u, n } ou null. Gardés seulement s'ils correspondent bien aux lignes.
+  if (el.ingredientsDetail !== undefined) {
+    const detail = el.ingredientsDetail;
+    if (!Array.isArray(detail) || detail.length > LIMITES_FICHE.ingredients ||
+        detail.some((d) => d !== null && !detailValide(d))) {
+      throw new Error(`${numero} a une liste d'ingrédients détaillés invalide.`);
+    }
+    if (propre.ingredients && detail.length === propre.ingredients.length && detail.some(Boolean)) {
+      propre.ingredientsDetail = detail.map((d) => (d ? { q: d.q, u: d.u.trim(), n: d.n.trim() } : null));
+    }
+  }
+  // Photo gardée dans la fiche (version 8) : une image JPEG écrite en texte
+  if (el.photoPerso !== undefined) {
+    if (!photoPersoValide(el.photoPerso)) throw new Error(`${numero} a une photo invalide.`);
+    propre.photoPerso = el.photoPerso;
+  }
   if (el.etapes !== undefined) {
     const liste = listeDeTextes(el.etapes, LIMITES_FICHE.etapes, LIMITES_FICHE.longueurEtape, "d'étapes");
     if (liste.length) propre.etapes = liste;
@@ -386,4 +406,69 @@ function verifierChampsFiche(el, numero) {
 }
 
 // Noms des champs de fiche (pour les copier d'un objet à l'autre)
-const CHAMPS_FICHE = ["images", "ingredients", "etapes", "portions", "tempsPreparation", "tempsCuisson", "verre", "methode", "alcoolBase"];
+const CHAMPS_FICHE = [
+  "images", "ingredients", "etapes", "portions", "tempsPreparation", "tempsCuisson",
+  "verre", "methode", "alcoolBase",
+  "ingredientsDetail", "photoPerso", // fiches créées avec l'IA (v1.12)
+];
+
+// --- 4. Ingrédients détaillés et photo gardée (fiches créées avec l'IA) ---
+// L'IA donne chaque ingrédient en trois morceaux : quantité, unité, nom.
+// On les range dans « ingredientsDetail », à côté de la ligne de texte
+// habituelle (« ingredients ») : { q: 200, u: "g", n: "de farine" }.
+// La case vaut null pour une ligne sans quantité (« Sel, poivre »).
+// La ligne de texte reste la référence : si elle est modifiée à la main,
+// son détail est oublié et l'app relit la quantité au début de la ligne.
+
+// Unités « métriques » : on écrit 1,5 kg plutôt que 1 ½ kg
+const UNITES_METRIQUES = /^(mg|g|kg|ml|cl|dl|l|cm)\.?$/i;
+
+function detailValide(d) {
+  return typeof d === "object" && d !== null &&
+    typeof d.q === "number" && Number.isFinite(d.q) && d.q > 0 && d.q <= LIMITES_FICHE.quantiteMax &&
+    typeof d.u === "string" && d.u.length <= LIMITES_FICHE.longueurUnite &&
+    typeof d.n === "string" && d.n.length <= LIMITES_FICHE.longueurIngredient;
+}
+
+function photoPersoValide(texte) {
+  const debut = "data:image/jpeg;base64,";
+  return typeof texte === "string" && texte.length <= LIMITES_FICHE.longueurPhoto &&
+    texte.startsWith(debut) && /^[A-Za-z0-9+/]+=*$/.test(texte.slice(debut.length));
+}
+
+// Quantité d'un ingrédient détaillé, écrite proprement (« 1 ½ », « 0,75 »)
+function formaterQuantite(q, unite) {
+  return formaterNombre(q, !UNITES_METRIQUES.test(unite.trim()), ",");
+}
+
+// { q: 0.5, u: "c. à soupe", n: "de sucre" } → « ½ c. à soupe de sucre »
+function ligneDepuisDetail(d) {
+  return [formaterQuantite(d.q, d.u), d.u.trim(), d.n.trim()].filter(Boolean).join(" ");
+}
+
+// Même résultat qu'adapterIngredient, à partir du détail : la quantité
+// multipliée par le facteur, mise à part pour l'afficher en gras.
+function adapterDetail(d, facteur) {
+  try {
+    if (!detailValide(d) || !Number.isFinite(facteur) || facteur <= 0) return null;
+    const quantite = formaterQuantite(d.q * facteur, d.u);
+    if (!quantite) return null;
+    const reste = [d.u.trim(), d.n.trim()].filter(Boolean).join(" ");
+    return { avant: "", quantite, apres: reste ? ` ${reste}` : "" };
+  } catch {
+    return null;
+  }
+}
+
+// Après une modification des lignes d'ingrédients : chaque ligne restée
+// identique garde son détail, une ligne modifiée ou nouvelle n'en a plus.
+// Renvoie undefined s'il ne reste aucun détail.
+function detailPourLignes(lignes, anciennesLignes, ancienDetail) {
+  if (!Array.isArray(ancienDetail) || !Array.isArray(anciennesLignes)) return undefined;
+  const correspondances = new Map();
+  anciennesLignes.forEach((ligne, i) => {
+    if (ancienDetail[i] && !correspondances.has(ligne)) correspondances.set(ligne, ancienDetail[i]);
+  });
+  const detail = lignes.map((ligne) => correspondances.get(ligne) || null);
+  return detail.some(Boolean) ? detail : undefined;
+}

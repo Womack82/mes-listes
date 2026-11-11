@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.11";
+const VERSION = "v1.12";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -289,7 +289,9 @@ function creerCarte(el, avecDate = false) {
     textes.append(date);
   }
   // Vignette : l'affiche (films, séries), ou la première photo d'une fiche
-  corps.append(creerVignette(el.affiche || (fiche && el.images ? el.images[0] : null), el.type), textes);
+  // (la photo gardée avec l'IA en priorité)
+  const photoFiche = fiche ? el.photoPerso || (el.images ? el.images[0] : null) : null;
+  corps.append(creerVignette(el.affiche || photoFiche, el.type), textes);
 
   // Case ronde : une vraie case à cocher, cachée, et un rond dessiné à côté.
   // Le <label> autour fait 44 px pour que le doigt ne la rate pas.
@@ -674,12 +676,16 @@ actionsEdition.addEventListener("submit", (evenement) => {
       afficherMessage("Temps : un nombre entier de minutes (ou rien).", false, editionErreur);
       return;
     }
+    const ingredients = lireLignes(editionIngredients, LIMITES_FICHE.ingredients, LIMITES_FICHE.longueurIngredient);
+    const ancien = elements.find((e) => e.id === idActions) || {};
     recette = {
       lien,
       note: editionNote.value.trim().slice(0, LONGUEUR_MAX_NOTE),
       portions,
       tempsPreparation: preparation,
-      ingredients: lireLignes(editionIngredients, LIMITES_FICHE.ingredients, LIMITES_FICHE.longueurIngredient),
+      ingredients,
+      // Fiche créée avec l'IA : les lignes inchangées gardent leur détail
+      ingredientsDetail: detailPourLignes(ingredients, ancien.ingredients, ancien.ingredientsDetail),
       // Une étape tapée « 1. Mélanger » devient « Mélanger » (la liste est
       // déjà numérotée) ; « #Titre » devient « # Titre » (titre de partie)
       etapes: lireLignes(editionEtapes, LIMITES_FICHE.etapes, LIMITES_FICHE.longueurEtape)
@@ -1305,7 +1311,8 @@ function afficherFiche() {
 // du doigt et les points indiquent laquelle est affichée. Une photo qui ne
 // se charge pas (hors ligne, site qui refuse) laisse voir le fond de repli.
 function afficherPhotos(el) {
-  const images = el.images || [];
+  // La photo gardée avec l'IA (s'il y en a une) passe en premier
+  const images = [el.photoPerso, ...(el.images || [])].filter(Boolean);
   fichePhotos.replaceChildren();
   fichePoints.replaceChildren();
   fichePhotos.hidden = images.length === 0;
@@ -1356,9 +1363,13 @@ function afficherIngredients(el) {
   portionsRetablir.hidden = personnes === base;
   portionsRetablir.textContent = `Rétablir les quantités d'origine (${pluriel(base, "personne")})`;
 
-  ficheIngredients.replaceChildren(...ingredients.map((ligne) => {
+  // Fiche créée avec l'IA : la quantité détaillée de la ligne (plus fiable),
+  // sinon la quantité lue au début de la ligne
+  const detail = el.ingredientsDetail || [];
+  ficheIngredients.replaceChildren(...ingredients.map((ligne, i) => {
     const li = document.createElement("li");
-    const adapte = facteur === 1 ? null : adapterIngredient(ligne, facteur);
+    const adapte = facteur === 1 ? null
+      : (detail[i] && adapterDetail(detail[i], facteur)) || adapterIngredient(ligne, facteur);
     if (adapte && adapte.quantite) {
       const quantite = document.createElement("strong");
       quantite.textContent = adapte.quantite;
@@ -1427,8 +1438,10 @@ const FORMAT_NOM = "mes-listes";
 // Version 7 : + contenu des fiches (facultatif) : photos (adresses),
 // ingrédients, étapes, portions, temps de préparation et de cuisson,
 // verre, méthode et alcool de base (cocktails).
-// L'app sait lire les sept.
-const FORMAT_VERSION = 7;
+// Version 8 : + fiches créées avec l'IA (facultatif) : ingrédients détaillés
+// (quantité, unité, nom) et une photo gardée dans la fiche (image JPEG).
+// L'app sait lire les huit. Les clés (TMDB, RAWG, Gemini) n'y sont jamais.
+const FORMAT_VERSION = 8;
 
 const boutonExporter = document.getElementById("bouton-exporter");
 const boutonImporter = document.getElementById("bouton-importer");
