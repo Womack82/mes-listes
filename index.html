@@ -296,13 +296,52 @@
         <input id="edition-titre" type="text" required>
         <label for="edition-type" class="etiquette">Type</label>
         <select id="edition-type"></select>
-        <!-- Recette seulement : lien et note -->
+        <!-- Recette et cocktail seulement : lien, note et contenu de la fiche -->
         <div id="edition-recette" class="edition-recette" hidden>
           <label for="edition-lien" class="etiquette">Lien (facultatif)</label>
           <input id="edition-lien" type="url" inputmode="url" autocomplete="off"
                  autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="https://…">
           <label for="edition-note" class="etiquette">Note (facultatif)</label>
           <textarea id="edition-note" rows="3" maxlength="1000"></textarea>
+
+          <div class="edition-colonnes">
+            <div class="edition-champ">
+              <label for="edition-portions" class="etiquette">Portions</label>
+              <input id="edition-portions" type="number" inputmode="numeric" min="1" max="100" placeholder="4">
+            </div>
+            <div class="edition-champ">
+              <label for="edition-preparation" class="etiquette">Préparation (min)</label>
+              <input id="edition-preparation" type="number" inputmode="numeric" min="1" max="10000">
+            </div>
+            <!-- Recette : cuisson -->
+            <div id="edition-champ-cuisson" class="edition-champ">
+              <label for="edition-cuisson" class="etiquette">Cuisson (min)</label>
+              <input id="edition-cuisson" type="number" inputmode="numeric" min="1" max="10000">
+            </div>
+          </div>
+          <!-- Cocktail : verre, méthode, alcool de base (avec suggestions) -->
+          <div id="edition-champs-cocktail" class="edition-recette">
+            <label for="edition-verre" class="etiquette">Verre</label>
+            <input id="edition-verre" type="text" maxlength="100" list="suggestions-verres" placeholder="Tumbler, coupe…">
+            <label for="edition-methode" class="etiquette">Méthode</label>
+            <input id="edition-methode" type="text" maxlength="100" list="suggestions-methodes" placeholder="Shaker, direct dans le verre…">
+            <label for="edition-alcool" class="etiquette">Alcool de base</label>
+            <input id="edition-alcool" type="text" maxlength="100" placeholder="Rhum, gin, vodka…">
+            <datalist id="suggestions-verres">
+              <option value="Tumbler"></option><option value="Old fashioned"></option>
+              <option value="Highball"></option><option value="Coupe"></option>
+              <option value="Verre à martini"></option><option value="Flûte"></option>
+              <option value="Verre à vin"></option><option value="Mug en cuivre"></option>
+            </datalist>
+            <datalist id="suggestions-methodes">
+              <option value="Shaker"></option><option value="Direct dans le verre"></option>
+              <option value="Verre à mélange"></option><option value="Blender"></option>
+            </datalist>
+          </div>
+          <label for="edition-ingredients" class="etiquette">Ingrédients (un par ligne)</label>
+          <textarea id="edition-ingredients" rows="5" placeholder="200 g de farine&#10;3 œufs"></textarea>
+          <label for="edition-etapes" class="etiquette">Étapes (une par ligne ; « # Titre » pour une partie)</label>
+          <textarea id="edition-etapes" rows="6" placeholder="# La pâte&#10;Mélanger la farine et les œufs.&#10;Laisser reposer 1 h."></textarea>
         </div>
         <p id="edition-erreur" class="message erreur" role="status" hidden></p>
         <div class="boutons-actions">
@@ -310,6 +349,65 @@
           <button type="button" id="edition-annuler" class="bouton-action secondaire">Annuler</button>
         </div>
       </form>
+    </div>
+  </dialog>
+
+  <!-- Page de fiche (recette, cocktail) : s'ouvre quand on touche la carte.
+       Tout le texte est mis par app.js avec textContent (aucun HTML importé). -->
+  <dialog id="fiche" class="fiche-page" aria-labelledby="fiche-titre">
+    <div class="fiche-contenu">
+      <div class="fiche-haut">
+        <button type="button" id="fiche-retour" class="bouton-rond fiche-retour" aria-label="Retour">
+          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+      </div>
+
+      <!-- Photos : défilement horizontal ; points indicateurs s'il y en a plusieurs -->
+      <div id="fiche-photos" class="fiche-photos" hidden></div>
+      <div id="fiche-points" class="fiche-points" aria-hidden="true" hidden></div>
+
+      <!-- En-tête : type, titre, temps, portions, note, source -->
+      <header class="fiche-entete verre">
+        <p id="fiche-type" class="fiche-type"></p>
+        <h2 id="fiche-titre"></h2>
+        <ul id="fiche-infos" class="fiche-infos"></ul>
+        <p id="fiche-note" class="fiche-note" hidden></p>
+        <a id="fiche-source" class="fiche-source" target="_blank" rel="noopener" hidden>Voir la source ↗</a>
+      </header>
+
+      <!-- Ingrédients, adaptés au nombre de personnes -->
+      <section id="fiche-bloc-ingredients" class="fiche-bloc verre" aria-labelledby="fiche-titre-ingredients" hidden>
+        <h3 id="fiche-titre-ingredients">Ingrédients</h3>
+        <div class="portions">
+          <button type="button" id="portions-moins" class="bouton-portions" aria-label="Une personne de moins">
+            <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M5 12h14"/></svg>
+          </button>
+          <p id="portions-texte" aria-live="polite"></p>
+          <button type="button" id="portions-plus" class="bouton-portions" aria-label="Une personne de plus">
+            <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <p id="portions-inconnues" class="aide portions-aide" hidden>
+          Portions d'origine inconnues : les quantités sont comptées pour 4.
+        </p>
+        <button type="button" id="portions-retablir" class="bouton-retablir" hidden></button>
+        <ul id="fiche-ingredients" class="fiche-ingredients"></ul>
+      </section>
+
+      <!-- Étapes : une carte par étape -->
+      <section id="fiche-bloc-etapes" aria-labelledby="fiche-titre-etapes" hidden>
+        <h3 id="fiche-titre-etapes" class="fiche-titre-bloc">Étapes</h3>
+        <ol id="fiche-etapes" class="fiche-etapes"></ol>
+      </section>
+
+      <p id="fiche-vide" class="aide vide" hidden>
+        Pas encore d'ingrédients ni d'étapes. Touchez « Modifier » pour les ajouter.
+      </p>
+
+      <div class="boutons-actions fiche-boutons">
+        <button type="button" id="fiche-modifier" class="bouton-action">Modifier</button>
+        <button type="button" id="fiche-supprimer" class="bouton-action supprimer">Supprimer</button>
+      </div>
     </div>
   </dialog>
 

@@ -1045,6 +1045,231 @@ form.edition textarea {
 .edition-recette { display: flex; flex-direction: column; gap: 6px; }
 form.edition .message { margin: 4px 0 0; }
 
+/* Modifier une fiche : portions et temps côte à côte */
+.edition-colonnes { display: flex; flex-wrap: wrap; gap: 8px; }
+.edition-champ { display: flex; flex-direction: column; gap: 6px; flex: 1 1 90px; min-width: 0; }
+.edition-champ input { width: 100%; }
+
+/* ---------- Page d'une fiche (recette, cocktail) ---------- */
+/* <dialog> plein écran, qui défile ; derrière, le même fond dégradé que l'app */
+.fiche-page {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--texte);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.fiche-page::backdrop {
+  background:
+    radial-gradient(70vmax 60vmax at -10% -5%, rgba(44, 110, 154, 0.26), transparent 60%),
+    radial-gradient(60vmax 55vmax at 110% 50%, rgba(255, 155, 84, 0.24), transparent 60%),
+    linear-gradient(170deg, #eef3fa, #dde8f5 55%, #e6ecf6);
+}
+/* Arrivée : glisse un peu depuis la droite avec un fondu */
+.fiche-page[open] { animation: arriver-droite 260ms var(--courbe); }
+@keyframes arriver-droite { from { opacity: 0; transform: translateX(28px); } }
+
+.fiche-contenu {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 16px calc(env(safe-area-inset-bottom) + 28px);
+}
+/* Bouton retour : reste en haut quand on fait défiler (verre flouté) */
+.fiche-haut {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: max(12px, calc(env(safe-area-inset-top) + 6px)) 0 10px;
+  pointer-events: none; /* seul le bouton capte les appuis */
+}
+.fiche-retour {
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.85);
+  border: var(--verre-bord);
+  box-shadow: var(--verre-ombre);
+  color: var(--bleu);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+/* Photos : grande, 4:3, coins de 28 px, défilement horizontal qui « cale »
+   chaque photo ; fond de repli (dégradé + icône) sous chaque photo */
+.fiche-photos {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  border-radius: 28px;
+  box-shadow: var(--verre-ombre);
+  scrollbar-width: none;
+}
+.fiche-photos::-webkit-scrollbar { display: none; }
+.fiche-photo {
+  position: relative;
+  flex: 0 0 100%;
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 28px;
+  overflow: hidden;
+  scroll-snap-align: center;
+  background: linear-gradient(160deg, var(--texte), var(--bleu));
+  color: var(--accent-survol);
+}
+.fiche-photo .icone-svg { width: 48px; height: 48px; stroke-width: 1.5; }
+.fiche-photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Points sous les photos : celui de la photo visible est orange et allongé */
+.fiche-points { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+.fiche-point {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(10, 35, 66, 0.22);
+  transition: width var(--duree) var(--courbe), background-color var(--duree) ease-out;
+}
+.fiche-point.actif { width: 20px; background: var(--accent); }
+
+/* En-tête : carte en verre, titre en grand, pastilles d'infos */
+.fiche-entete { margin-top: 14px; padding: 18px; border-radius: 30px; }
+.fiche-type { margin: 0; font-size: 13px; font-weight: 600; color: var(--bleu); }
+#fiche-titre {
+  margin: 2px 0 0;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  word-break: break-word;
+}
+.fiche-infos { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 14px 0 0; }
+.fiche-infos li {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: var(--bleu-pale);
+}
+.fiche-infos span { font-size: 11px; color: var(--gris); }
+.fiche-infos strong { font-size: 15px; word-break: break-word; }
+.fiche-note {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: var(--gris);
+  white-space: pre-line; /* garde les retours à la ligne de la note */
+  word-break: break-word;
+}
+/* « Voir la source ↗ » : bouton bleu, texte blanc */
+.fiche-source {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 0 18px;
+  border-radius: 22px;
+  background: var(--bleu);
+  color: white;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Blocs Ingrédients et Étapes */
+.fiche-bloc { margin-top: 16px; padding: 16px; border-radius: 30px; }
+.fiche-bloc h3,
+.fiche-titre-bloc { margin: 0 0 12px; font-size: 19px; font-weight: 800; }
+.fiche-titre-bloc { margin: 24px 4px 12px; }
+
+/* Sélecteur « − Pour 4 personnes + » */
+.portions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.75);
+  border: var(--verre-bord);
+}
+#portions-texte { flex: 1; margin: 0; text-align: center; font-weight: 700; font-size: 16px; }
+.bouton-portions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--bleu);
+  color: white;
+}
+.bouton-portions .icone-svg { stroke-width: 2.5; }
+.bouton-portions:disabled { opacity: 0.35; cursor: default; }
+.portions-aide { margin: 8px 4px 0; font-size: 13px; }
+/* « Rétablir » : texte bleu souligné, zone d'appui de 44 px */
+.bouton-retablir {
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--bleu);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-align: left;
+}
+.fiche-ingredients { list-style: none; padding: 0; margin: 8px 0 0; }
+.fiche-ingredients li {
+  padding: 11px 4px;
+  border-bottom: 1px solid rgba(10, 35, 66, 0.08);
+  font-size: 16px;
+  word-break: break-word;
+}
+.fiche-ingredients li:last-child { border-bottom: none; }
+.fiche-ingredients strong { color: var(--bleu); }
+
+/* Étapes : une carte verre (rayon 24 px) par étape, pastille numérotée */
+.fiche-etapes { list-style: none; padding: 0; margin: 0; }
+.fiche-etape {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 10px;
+  border-radius: 24px;
+}
+.fiche-numero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bleu);
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+}
+.fiche-etape p { margin: 5px 0 0; font-size: 16px; line-height: 1.45; word-break: break-word; }
+/* Titre de partie (« La pâte ») entre deux étapes */
+.fiche-section { margin: 18px 6px 10px; font-size: 16px; font-weight: 800; color: var(--bleu); }
+.fiche-section:first-child { margin-top: 0; }
+
+.fiche-boutons { margin-top: 24px; }
+
 /* ---------- Mentions TMDB et RAWG ---------- */
 .mentions {
   margin-top: 28px;
@@ -1074,6 +1299,8 @@ form.edition .message { margin: 4px 0 0; }
   .barre-bas,
   .panneau,
   .menu-carte,
+  .fiche-retour,
+  .portions,
   #fenetre-import {
     background: white;
     -webkit-backdrop-filter: none;
