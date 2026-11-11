@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.7";
+const VERSION = "v1.8";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -275,7 +275,20 @@ function creerCarte(el, avecDate = false) {
   rond.append(creerIcone("M6 12.5l4 4 8-9", "coche"));
   zone.append(caseACocher, rond);
 
-  li.append(corps, zone);
+  li.append(corps);
+  // Recette avec un lien : petite icône qui ouvre l'adresse dans un nouvel
+  // onglet (noopener : la page ouverte ne peut pas agir sur l'app)
+  if (el.type === "recette" && el.lien) {
+    const lien = document.createElement("a");
+    lien.className = "carte-lien";
+    lien.href = el.lien;
+    lien.target = "_blank";
+    lien.rel = "noopener";
+    lien.setAttribute("aria-label", `Ouvrir le lien de la recette : ${el.titre}`);
+    lien.append(creerIcone("M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"));
+    li.append(lien);
+  }
+  li.append(zone);
   return li;
 }
 
@@ -304,10 +317,33 @@ function creerLigneSupprimee(el) {
   return li;
 }
 
+// --- Liens et notes des recettes ---
+// Note : 1 000 caractères au plus
+const LONGUEUR_MAX_NOTE = 1000;
+
+// Renvoie l'adresse propre si le texte est un lien http ou https, sinon null.
+// (On refuse tout le reste, par exemple « javascript: », qui pourrait lancer du code.)
+function lienValide(texte) {
+  if (typeof texte !== "string") return null;
+  try {
+    const adresse = new URL(texte.trim());
+    if (adresse.protocol !== "http:" && adresse.protocol !== "https:") return null;
+    return adresse.href;
+  } catch {
+    return null; // ce n'est pas une adresse
+  }
+}
+
+// Le nom de domaine d'un lien, sans « www. » : « instagram.com »
+function domaine(lien) {
+  return new URL(lien).hostname.replace(/^www\./, "");
+}
+
 // --- 4. Les actions ------------------------------------------
-// infos (facultatif) : quand le titre a été choisi dans une recherche
+// infos (facultatif) :
 // - TMDB (films, séries) : { annee, affiche, idTmdb } (+ idImdb, cherché juste après)
 // - RAWG (jeux)          : { annee, idRawg } (pas de jaquette, volontairement)
+// - recette              : { lien, note } (tous les deux facultatifs)
 function ajouter(titre, type, infos = null) {
   const el = {
     id: Date.now().toString(), // identifiant unique basé sur l'heure
@@ -320,6 +356,8 @@ function ajouter(titre, type, infos = null) {
     if (infos.affiche) el.affiche = infos.affiche;
     if (infos.idTmdb) el.idTmdb = infos.idTmdb;
     if (infos.idRawg) el.idRawg = infos.idRawg;
+    if (infos.lien) el.lien = infos.lien;
+    if (infos.note) el.note = infos.note;
   }
   elements.push(el);
   sauvegarder();
@@ -382,13 +420,20 @@ function afficherEnDouceur() {
   }
 }
 
-function modifier(id, titre, type) {
+// recette (facultatif) : { lien, note } quand on modifie une recette ;
+// une valeur vide efface le lien ou la note. Sans « recette », lien et
+// note restent tels quels (ils sont gardés même si le type change).
+function modifier(id, titre, type, recette = null) {
   const el = elements.find((e) => e.id === id);
   // Si le type change, les infos TMDB / RAWG ne correspondent plus
   // (un identifiant TMDB de film ne désigne pas la même chose côté séries)
   if (type !== el.type) retirerInfosExternes(el);
   el.titre = titre;
   el.type = type;
+  if (recette) {
+    if (recette.lien) el.lien = recette.lien; else delete el.lien;
+    if (recette.note) el.note = recette.note; else delete el.note;
+  }
   sauvegarder();
   afficher();
 }
@@ -419,6 +464,13 @@ const actionsSupprimer = document.getElementById("actions-supprimer");
 const actionsEdition = document.getElementById("actions-edition");
 const editionTitre = document.getElementById("edition-titre");
 const editionType = document.getElementById("edition-type");
+// Recettes : note et lien dans le panneau, champs lien et note dans Modifier
+const actionsNote = document.getElementById("actions-note");
+const actionsLien = document.getElementById("actions-lien");
+const editionRecette = document.getElementById("edition-recette");
+const editionLien = document.getElementById("edition-lien");
+const editionNote = document.getElementById("edition-note");
+const editionErreur = document.getElementById("edition-erreur");
 
 // L'élément concerné par le panneau (null = panneau fermé)
 let idActions = null;
@@ -450,6 +502,12 @@ function ouvrirActions(id) {
   // Lien IMDb seulement pour les films et séries qui en ont un
   actionsImdb.hidden = !el.idImdb;
   if (el.idImdb) actionsImdb.href = `https://www.imdb.com/title/${el.idImdb}/`;
+  // Recette : sa note sous le titre et « Ouvrir le lien ↗ » s'ils existent
+  const recette = el.type === "recette";
+  actionsNote.textContent = recette && el.note ? el.note : "";
+  actionsNote.hidden = !(recette && el.note);
+  actionsLien.hidden = !(recette && el.lien);
+  if (recette && el.lien) actionsLien.href = el.lien;
   annulerConfirmation();
   actionsBoutons.hidden = false;
   actionsEdition.hidden = true;
@@ -462,7 +520,14 @@ function fermerActions() {
   panneauActions.close();
 }
 
+// Champs lien et note : visibles seulement quand le type choisi est Recette
+function majEditionRecette() {
+  editionRecette.hidden = editionType.value !== "recette";
+}
+editionType.addEventListener("change", majEditionRecette);
+
 // « Modifier » : le titre et le type se changent dans le panneau
+// (et, pour une recette, le lien et la note)
 actionsModifier.addEventListener("click", () => {
   const el = elements.find((e) => e.id === idActions);
   if (!el) return;
@@ -470,6 +535,12 @@ actionsModifier.addEventListener("click", () => {
   editionTitre.value = el.titre;
   remplirTypes(el.type);
   editionType.value = el.type;
+  // Lien et note gardés même pour un autre type : on les retrouve en
+  // repassant en Recette
+  editionLien.value = el.lien || "";
+  editionNote.value = el.note || "";
+  editionErreur.hidden = true;
+  majEditionRecette();
   actionsBoutons.hidden = true;
   actionsEdition.hidden = false;
   editionTitre.focus();
@@ -479,7 +550,17 @@ actionsEdition.addEventListener("submit", (evenement) => {
   evenement.preventDefault();
   const nouveauTitre = editionTitre.value.trim();
   if (nouveauTitre === "" || idActions === null) return;
-  modifier(idActions, nouveauTitre, editionType.value);
+  let recette = null;
+  if (editionType.value === "recette") {
+    const texteLien = editionLien.value.trim();
+    const lien = lienValide(texteLien);
+    if (texteLien !== "" && !lien) {
+      afficherMessage("Ce lien n'est pas valide : il doit commencer par http:// ou https://.", false, editionErreur);
+      return;
+    }
+    recette = { lien, note: editionNote.value.trim().slice(0, LONGUEUR_MAX_NOTE) };
+  }
+  modifier(idActions, nouveauTitre, editionType.value, recette);
   fermerActions();
 });
 
@@ -570,6 +651,11 @@ const ajoutDirect = document.getElementById("ajout-direct");
 const zoneResultats = document.getElementById("zone-resultats");
 const ajoutTelQuel = document.getElementById("ajout-tel-quel");
 const mentionSource = document.getElementById("mention-source");
+// Recette : lien, bouton « Coller le lien », note
+const zoneRecette = document.getElementById("zone-recette");
+const champLien = document.getElementById("champ-lien");
+const champNote = document.getElementById("champ-note");
+const messageColler = document.getElementById("message-coller");
 
 // Catégorie choisie dans le menu (film, serie, jeu, recette)
 let categorieAjout = "film";
@@ -637,11 +723,11 @@ function deverrouillerPage() {
 }
 // Sur iPhone, glisser le doigt sur une partie fixe (voile, en-tête, champ)
 // fait quand même bouger l'écran : on l'interdit partout, sauf dans la
-// liste de résultats (qui doit défiler) et le champ (pour placer le curseur)
+// liste de résultats (qui doit défiler) et les champs (pour placer le curseur)
 function bloquerGlissement(panneau) {
   panneau.addEventListener("touchmove", (evenement) => {
     const cible = evenement.target;
-    if (!zoneResultats.contains(cible) && cible !== champTitre) evenement.preventDefault();
+    if (!zoneResultats.contains(cible) && !cible.matches("input, textarea")) evenement.preventDefault();
   }, { passive: false });
 }
 
@@ -663,6 +749,12 @@ function ouvrirAjout(type) {
   champTitre.enterKeyHint = avecRecherche ? "search" : "done";
   mentionSource.textContent = MENTIONS[type] || "";
   rechercheJeuxIndisponible = false; // chaque ouverture retente RAWG
+  // Recette : lien et note vides. Rien n'est lu dans le presse-papiers
+  // à l'ouverture : seulement quand on touche « Coller le lien ».
+  zoneRecette.hidden = type !== "recette";
+  champLien.value = "";
+  champNote.value = "";
+  messageColler.hidden = true;
   masquerRecherche();
   // Jeu sans clé RAWG : saisie manuelle tout de suite
   if (type === "jeu" && lireCleRawg() === "") passerJeuxEnManuel(true);
@@ -729,13 +821,95 @@ if (window.visualViewport) {
 // Saisie manuelle (« Ajouter » ou « Ajouter « titre » tel quel ») :
 // le titre tel qu'il est écrit, sans infos TMDB / RAWG
 function ajouterTelQuel() {
+  const type = categorieChoisie();
   const titre = champTitre.value.trim();
+  let infos = null;
+  // Recette : lien (vérifié) et note, tous les deux facultatifs
+  if (type === "recette") {
+    const texteLien = champLien.value.trim();
+    const lien = lienValide(texteLien);
+    if (texteLien !== "" && !lien) {
+      montrerMessageColler("Ce lien n'est pas valide : il doit commencer par http:// ou https://.");
+      champLien.focus();
+      return;
+    }
+    // Titre vide mais lien présent : on propose le nom du site comme titre
+    if (titre === "" && lien) {
+      proposerTitre(lien);
+      return;
+    }
+    infos = { lien, note: champNote.value.trim().slice(0, LONGUEUR_MAX_NOTE) };
+  }
   if (titre === "") {
     champTitre.focus(); // rien d'écrit : on remet simplement le curseur
     return;
   }
-  ajouter(titre, categorieChoisie());
+  ajouter(titre, type, infos);
   fermerAjout();
+}
+
+// --- Recette : coller un lien ---
+function montrerMessageColler(texte) {
+  messageColler.textContent = texte;
+  messageColler.hidden = false;
+}
+
+// Titre vide : on y met le nom du site (« instagram.com »), déjà
+// sélectionné pour qu'il suffise de taper par-dessus
+function proposerTitre(lien) {
+  if (champTitre.value.trim() !== "") return;
+  champTitre.value = domaine(lien);
+  champTitre.focus();
+  champTitre.select();
+}
+
+// « Coller le lien » : lit le presse-papiers (seulement sur ce geste ;
+// l'iPhone affiche alors sa bulle « Coller » à toucher pour autoriser).
+// Le premier lien http(s) trouvé dans le texte remplit le champ Lien.
+document.getElementById("bouton-coller").addEventListener("click", async () => {
+  messageColler.hidden = true;
+  let texte;
+  try {
+    texte = await navigator.clipboard.readText();
+  } catch {
+    // Refusé, ou navigateur qui ne permet pas de lire le presse-papiers
+    montrerMessageColler("Impossible de lire le presse-papiers, collez le lien à la main.");
+    return;
+  }
+  const trouve = (texte || "").match(/https?:\/\/\S+/i);
+  const lien = trouve ? lienValide(trouve[0]) : null;
+  if (!lien) {
+    montrerMessageColler("Le presse-papiers ne contient pas de lien (http ou https). Collez le lien à la main.");
+    return;
+  }
+  champLien.value = lien;
+  proposerTitre(lien);
+});
+
+// Lien collé ou tapé à la main : même proposition de titre.
+// (Collé : tout de suite ; tapé : quand on quitte le champ, pour ne pas
+// proposer un titre à partir d'une adresse à moitié écrite.)
+champLien.addEventListener("input", (evenement) => {
+  messageColler.hidden = true;
+  if (evenement.inputType === "insertFromPaste") {
+    const lien = lienValide(champLien.value);
+    if (lien) proposerTitre(lien);
+  }
+});
+champLien.addEventListener("change", () => {
+  const lien = lienValide(champLien.value);
+  if (lien) proposerTitre(lien);
+});
+
+// Touche Entrée dans le titre ou le lien. Le formulaire a maintenant
+// plusieurs champs : le navigateur ne l'envoie plus tout seul, on le fait ici.
+// (Dans la note, Entrée passe simplement à la ligne.)
+for (const champ of [champTitre, champLien]) {
+  champ.addEventListener("keydown", (evenement) => {
+    if (evenement.key !== "Enter" || evenement.isComposing) return;
+    evenement.preventDefault();
+    formulaire.requestSubmit();
+  });
 }
 // Touche Entrée du clavier :
 // - Film, Série, Jeu : lance la recherche tout de suite et ferme le clavier
@@ -761,8 +935,9 @@ const FORMAT_NOM = "mes-listes";
 // Version 1 : titre, type, fait. Version 2 : + année, affiche, identifiant TMDB
 // (facultatifs). Version 3 : + identifiant RAWG pour les jeux (facultatif).
 // Version 4 : + identifiant IMDb pour les films et séries (facultatif).
-// L'app sait lire les quatre.
-const FORMAT_VERSION = 4;
+// Version 5 : + lien et note des recettes (facultatifs).
+// L'app sait lire les cinq.
+const FORMAT_VERSION = 5;
 
 const boutonExporter = document.getElementById("bouton-exporter");
 const boutonImporter = document.getElementById("bouton-importer");
@@ -899,6 +1074,19 @@ function verifierFichier(donnees) {
         throw new Error(`${numero} a une adresse d'affiche invalide.`);
       }
       propre.affiche = el.affiche;
+    }
+    // Lien et note des recettes (version 5, facultatifs). Gardés aussi pour
+    // les autres types : une recette changée de catégorie les conserve.
+    if (el.lien !== undefined) {
+      const lien = lienValide(el.lien);
+      if (!lien) throw new Error(`${numero} a un lien invalide (il doit commencer par http:// ou https://).`);
+      propre.lien = lien;
+    }
+    if (el.note !== undefined) {
+      if (typeof el.note !== "string" || el.note.length > LONGUEUR_MAX_NOTE) {
+        throw new Error(`${numero} a une note invalide (texte de ${LONGUEUR_MAX_NOTE} caractères au plus).`);
+      }
+      if (el.note.trim() !== "") propre.note = el.note.trim();
     }
     return propre;
   });

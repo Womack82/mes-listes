@@ -245,8 +245,11 @@
   <dialog id="panneau-actions" class="panneau panneau-bas" aria-labelledby="actions-titre">
     <div class="panneau-contenu">
       <h2 id="actions-titre"></h2>
+      <!-- Note d'une recette (s'il y en a une) -->
+      <p id="actions-note" class="actions-note" hidden></p>
       <div id="actions-boutons" class="boutons-actions">
         <a id="actions-imdb" class="bouton-action" target="_blank" rel="noopener" hidden>Voir sur IMDb ↗</a>
+        <a id="actions-lien" class="bouton-action" target="_blank" rel="noopener" hidden>Ouvrir le lien ↗</a>
         <button type="button" id="actions-modifier" class="bouton-action">Modifier</button>
         <button type="button" id="actions-supprimer" class="bouton-action supprimer">Supprimer</button>
         <button type="button" id="actions-annuler" class="bouton-action secondaire">Annuler</button>
@@ -257,6 +260,15 @@
         <input id="edition-titre" type="text" required>
         <label for="edition-type" class="etiquette">Type</label>
         <select id="edition-type"></select>
+        <!-- Recette seulement : lien et note -->
+        <div id="edition-recette" class="edition-recette" hidden>
+          <label for="edition-lien" class="etiquette">Lien (facultatif)</label>
+          <input id="edition-lien" type="url" inputmode="url" autocomplete="off"
+                 autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="https://…">
+          <label for="edition-note" class="etiquette">Note (facultatif)</label>
+          <textarea id="edition-note" rows="3" maxlength="1000"></textarea>
+        </div>
+        <p id="edition-erreur" class="message erreur" role="status" hidden></p>
         <div class="boutons-actions">
           <button type="submit" class="bouton-action principal">Enregistrer</button>
           <button type="button" id="edition-annuler" class="bouton-action secondaire">Annuler</button>
@@ -301,6 +313,23 @@
                autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false"
                enterkeyhint="search" placeholder="Nom du film">
         <button type="button" id="ajout-direct" class="bouton-ajout-ligne" hidden>Ajouter</button>
+      </div>
+
+      <!-- Recette seulement : lien (facultatif, avec bouton pour coller) et note -->
+      <div id="zone-recette" class="zone-recette" hidden>
+        <div class="ligne-lien">
+          <input id="champ-lien" type="url" inputmode="url" aria-label="Lien de la recette (facultatif)"
+                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                 enterkeyhint="done" placeholder="Lien (facultatif)">
+          <button type="button" id="bouton-coller" class="bouton-coller">
+            <!-- Presse-papiers -->
+            <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M9 4h6v3H9z M9 5.5H7a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7.5a2 2 0 0 0-2-2h-2"/></svg>
+            Coller le lien
+          </button>
+        </div>
+        <p id="message-coller" class="aide message-coller" role="status" hidden></p>
+        <textarea id="champ-note" rows="3" maxlength="1000" aria-label="Note (facultatif)"
+                  autocapitalize="sentences" placeholder="Note (facultatif)"></textarea>
       </div>
 
       <!-- Film, Série, Jeu : résultats de la recherche TMDB / RAWG (remplis par

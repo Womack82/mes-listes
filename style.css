@@ -944,6 +944,77 @@ html.verrou body { overflow: hidden; }
 .boutons-fenetre { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 .boutons-fenetre .danger { background: var(--rouge); border-color: var(--rouge); color: white; }
 
+/* ---------- Recettes : lien et note ---------- */
+/* Dans le calque d'ajout : ligne « Lien » + bouton « Coller le lien », puis la note */
+.zone-recette { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; flex-shrink: 0; }
+.ligne-lien { display: flex; gap: 8px; }
+#champ-lien,
+#champ-note,
+form.edition textarea {
+  min-width: 0;
+  border: 1px solid var(--bouton-bord);
+  background: var(--carte);
+  color: var(--texte);
+  font: inherit;
+  font-size: 16px; /* 16px minimum : sinon l'iPhone zoome dans le champ */
+}
+#champ-lien { flex: 1; height: 48px; padding: 0 16px; border-radius: 24px; }
+#champ-note,
+form.edition textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 22px;
+  resize: vertical;
+}
+#champ-lien::placeholder,
+#champ-note::placeholder { color: var(--gris); }
+/* « Coller le lien » : bleu pâle, icône presse-papiers */
+.bouton-coller {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 24px;
+  background: var(--bleu-pale);
+  color: var(--texte);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.bouton-coller .icone-svg { width: 20px; height: 20px; color: var(--bleu); }
+.message-coller { margin: 0 4px; font-size: 13px; }
+
+/* Sur la carte : icône lien de 44 px (zone d'appui), entre le texte et la case */
+.carte-lien {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--bleu);
+  -webkit-tap-highlight-color: transparent;
+}
+.carte-lien .icone-svg { width: 20px; height: 20px; }
+.carte-lien:active { background: var(--bleu-pale); }
+
+/* Panneau d'actions : note de la recette sous le titre */
+.actions-note {
+  margin: -6px 4px 14px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--gris);
+  white-space: pre-line; /* garde les retours à la ligne de la note */
+  word-break: break-word;
+}
+.edition-recette { display: flex; flex-direction: column; gap: 6px; }
+form.edition .message { margin: 4px 0 0; }
+
 /* ---------- Mentions TMDB et RAWG ---------- */
 .mentions {
   margin-top: 28px;
