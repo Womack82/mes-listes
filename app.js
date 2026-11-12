@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.14";
+const VERSION = "v1.15";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
