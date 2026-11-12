@@ -1149,12 +1149,22 @@ form.edition .message { margin: 4px 0 0; }
   color: var(--accent-survol);
 }
 .fiche-photo .icone-svg { width: 48px; height: 48px; stroke-width: 1.5; }
+/* La photo est toujours visible en entier (contain), centrée ; derrière,
+   la même photo remplit le cadre (cover), floutée, un peu assombrie et
+   agrandie (scale 1.1) pour que ses bords flous ne se voient pas.
+   Le cadre garde sa taille (4:3) et ses coins arrondis (overflow: hidden). */
 .fiche-photo img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+.fiche-photo .fiche-photo-fond {
   object-fit: cover;
+  filter: blur(20px) brightness(0.8);
+  transform: scale(1.1);
 }
 /* Points sous les photos : celui de la photo visible est orange et allongé */
 .fiche-points { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }

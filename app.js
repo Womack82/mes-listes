@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.16";
+const VERSION = "v1.17";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -1383,6 +1383,19 @@ function afficherPhotos(el) {
     const cadre = document.createElement("div");
     cadre.className = "fiche-photo";
     cadre.append(creerIcone(ICONES_TYPES[el.type])); // fond de repli
+    // Copie floutée de la même photo, derrière : elle comble les bandes
+    // vides quand la photo (affichée en entier) n'a pas le format du cadre.
+    // Purement décorative : cachée aux lecteurs d'écran.
+    const fond = document.createElement("img");
+    fond.className = "fiche-photo-fond";
+    fond.src = adresse;
+    fond.alt = "";
+    fond.setAttribute("aria-hidden", "true");
+    fond.referrerPolicy = "no-referrer";
+    fond.decoding = "async";
+    if (rang > 0) fond.loading = "lazy";
+    fond.addEventListener("error", () => fond.remove());
+    cadre.append(fond);
     const image = document.createElement("img");
     image.src = adresse;
     image.alt = images.length > 1 ? `Photo ${rang + 1} sur ${images.length}` : "";
