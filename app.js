@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.20";
+const VERSION = "v1.21";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -2196,7 +2196,7 @@ async function exporter() {
   };
   const texte = JSON.stringify(donnees, null, 2); // indenté : lisible à l'œil
   const date = new Date().toLocaleDateString("sv-SE"); // donne "2026-11-09"
-  const nomFichier = `mes-listes-${date}.json`;
+  const nomFichier = `wodo-${date}.json`; // ex. : wodo-2026-11-12.json
   const fichier = new File([texte], nomFichier, { type: "application/json" });
 
   // Écran tactile + partage de fichiers possible → menu de partage
@@ -2230,7 +2230,7 @@ async function exporter() {
 // On recopie seulement les champs connus, pour ne rien garder d'inattendu.
 function verifierFichier(donnees) {
   if (typeof donnees !== "object" || donnees === null || donnees.format !== FORMAT_NOM) {
-    throw new Error("Ce fichier n'est pas une sauvegarde de Mes listes.");
+    throw new Error("Ce fichier n'est pas une sauvegarde de Wodo.");
   }
   if (!Number.isInteger(donnees.version) || donnees.version < 1) {
     throw new Error("Le numéro de version du fichier est invalide.");

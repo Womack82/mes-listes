@@ -7,7 +7,7 @@
 // téléphone continuera d'utiliser l'ancienne copie :
 // chaque changement ajoute 1 au second numéro : v1.1 → v1.2 → v1.3…
 // ⚠️ Change aussi VERSION en haut de app.js (affichée à côté du logo).
-const NOM_CACHE = "mes-listes-v1.20";
+const NOM_CACHE = "mes-listes-v1.21";
 
 // ⚠️ Si un seul de ces fichiers est introuvable, rien n'est mis en cache
 // (l'app ne marchera pas hors ligne) : vérifier chaque chemin.
@@ -20,15 +20,15 @@ const FICHIERS = [
   "photos.js",
   "app.js",
   "notes.js",
-  "manifest.json",
+  "manifest.json?v=2",
   // Logo et icônes (dossier icons)
   "icons/logo-w.svg",
   "icons/logo-w-clair.svg",
   "icons/icon.svg",
-  "icons/apple-touch-icon.png",
-  "icons/icon-192.png",
-  "icons/icon-512.png",
-  "icons/favicon-32.png",
+  "icons/apple-touch-icon.png?v=2", // ?v=2 : force le téléchargement de la nouvelle icône
+  "icons/icon-192.png?v=2",
+  "icons/icon-512.png?v=2",
+  "icons/favicon-32.png?v=2",
   "icons/tmdb.svg",
 ];
 

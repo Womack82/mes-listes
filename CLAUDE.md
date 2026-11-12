@@ -1,9 +1,13 @@
-# Règles du projet « Mes listes »
+# Règles du projet « Wodo » (anciennement « Mes listes »)
 
 ## Le projet
 
 - Petite web app installable (PWA) pour tenir des listes : films, séries,
-  jeux, recettes et autres.
+  jeux, recettes et autres. Son nom affiché est **Wodo** (depuis la v1.21).
+- Les noms techniques gardent « mes-listes » et ne doivent pas changer :
+  clés de la mémoire (localStorage), base des photos (IndexedDB), format
+  des sauvegardes (`format: "mes-listes"`), adresse du site et du dépôt.
+  Les changer ferait perdre les données déjà enregistrées.
 - Publiée sur GitHub Pages : https://womack82.github.io/mes-listes/
 - Utilisée surtout sur iPhone.
 - Les améliorations à faire et déjà faites sont suivies dans `TODO.md`.
