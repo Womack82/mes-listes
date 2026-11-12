@@ -426,7 +426,16 @@ function verifierChampsFiche(el, numero) {
       propre.ingredientsDetail = detail.map((d) => (d ? { q: d.q, u: d.u.trim(), n: d.n.trim() } : null));
     }
   }
-  // Photo gardée dans la fiche (version 8) : une image JPEG écrite en texte
+  // Photo gardée dans la fiche (version 11) : identifiant de la photo rangée
+  // dans IndexedDB (photos.js) ; l'image elle-même est à part dans le fichier
+  if (el.photoId !== undefined) {
+    if (typeof el.photoId !== "string" || !/^p-[a-z0-9]{6,40}$/.test(el.photoId)) {
+      throw new Error(`${numero} a un identifiant de photo invalide.`);
+    }
+    propre.photoId = el.photoId;
+  }
+  // Ancienne forme (versions 8 à 10) : l'image JPEG écrite en texte dans la
+  // fiche ; l'app la range dans IndexedDB après l'import
   if (el.photoPerso !== undefined) {
     if (!photoPersoValide(el.photoPerso)) throw new Error(`${numero} a une photo invalide.`);
     propre.photoPerso = el.photoPerso;
@@ -452,6 +461,7 @@ const CHAMPS_FICHE = [
   "images", "ingredients", "etapes", "portions", "tempsPreparation", "tempsCuisson",
   "verre", "methode", "alcoolBase",
   "ingredientsDetail", "photoPerso", // fiches créées avec l'IA (v1.12)
+  "photoId", // photo rangée dans IndexedDB (v1.19), remplace photoPerso
 ];
 
 // --- 4. Ingrédients détaillés et photo gardée (fiches créées avec l'IA) ---

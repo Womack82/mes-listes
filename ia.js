@@ -136,15 +136,10 @@ function fichierEnDataUrl(fichier) {
   });
 }
 
-// Photo gardée dans la fiche : 800 px, et plus compressée si elle reste
-// trop lourde pour la mémoire de l'app. null si impossible.
+// Photo gardée dans la fiche : réduite (JPEG), rangée ensuite dans
+// IndexedDB par app.js (photos.js). Lance ErreurIa("image") si illisible.
 async function photoPourFiche(fichier) {
-  for (const qualite of [LIMITES_IA.qualiteGardee, 0.5]) {
-    const petite = await reduireImage(fichier, LIMITES_IA.coteGardee, qualite);
-    const texte = await fichierEnDataUrl(petite);
-    if (photoPersoValide(texte)) return texte;
-  }
-  return null;
+  return reduireImage(fichier, LIMITES_IA.coteGardee, LIMITES_IA.qualiteGardee);
 }
 
 // --- 3. Appeler Gemini --------------------------------------------

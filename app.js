@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.18";
+const VERSION = "v1.19";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -287,7 +287,7 @@ function creerCarte(el, avecDate = false) {
   }
   // Vignette : l'affiche (films, séries), ou la première photo d'une fiche
   // (la photo gardée avec l'IA en priorité)
-  const photoFiche = fiche ? el.photoPerso || (el.images ? el.images[0] : null) : null;
+  const photoFiche = fiche ? adressePhotoFiche(el) || (el.images ? el.images[0] : null) : null;
   corps.append(creerVignette(el.affiche || photoFiche, el.type), textes);
 
   // Case ronde : une vraie case à cocher, cachée, et un rond dessiné à côté.
@@ -461,8 +461,11 @@ function modifier(id, titre, type, recette = null) {
   afficher();
 }
 
-// Suppression définitive (plus d'historique « Supprimés » depuis la v1.18)
+// Suppression définitive (plus d'historique « Supprimés » depuis la v1.18).
+// Sa photo gardée est aussi effacée de la mémoire des photos.
 function supprimer(id) {
+  const el = elements.find((e) => e.id === id);
+  if (el && el.photoId) supprimerPhoto(el.photoId).catch(() => {});
   elements = elements.filter((e) => e.id !== id);
   sauvegarder();
   afficher();
@@ -739,6 +742,9 @@ function afficherVue(nom) {
   for (const [cle, vue] of Object.entries(VUES)) vue.bloc.hidden = cle !== nom;
   reglagesTitre.textContent = VUES[nom].titre;
   reglagesRetour.hidden = nom === "menu";
+  // Sauvegarde : les photos sont préparées tout de suite, pour que le
+  // menu de partage s'ouvre sans attendre après « Exporter »
+  if (nom === "sauvegarde") preparerPhotosExport();
 }
 
 document.getElementById("bouton-reglages").addEventListener("click", () => {
@@ -1336,8 +1342,8 @@ function afficherFiche() {
 // du doigt et les points indiquent laquelle est affichée. Une photo qui ne
 // se charge pas (hors ligne, site qui refuse) laisse voir le fond de repli.
 function afficherPhotos(el) {
-  // La photo gardée avec l'IA (s'il y en a une) passe en premier
-  const images = [el.photoPerso, ...(el.images || [])].filter(Boolean);
+  // La photo gardée (mémoire des photos, « idb:… ») passe en premier
+  const images = [adressePhotoFiche(el), ...(el.images || [])].filter(Boolean);
   fichePhotos.replaceChildren();
   fichePoints.replaceChildren();
   fichePhotos.hidden = images.length === 0;
@@ -1351,7 +1357,7 @@ function afficherPhotos(el) {
     // Purement décorative : cachée aux lecteurs d'écran.
     const fond = document.createElement("img");
     fond.className = "fiche-photo-fond";
-    fond.src = adresse;
+    poserSource(fond, adresse, () => fond.remove());
     fond.alt = "";
     fond.setAttribute("aria-hidden", "true");
     fond.referrerPolicy = "no-referrer";
@@ -1360,7 +1366,7 @@ function afficherPhotos(el) {
     fond.addEventListener("error", () => fond.remove());
     cadre.append(fond);
     const image = document.createElement("img");
-    image.src = adresse;
+    poserSource(image, adresse, () => image.remove());
     image.alt = images.length > 1 ? `Photo ${rang + 1} sur ${images.length}` : "";
     image.referrerPolicy = "no-referrer";
     image.decoding = "async";
@@ -1905,40 +1911,33 @@ iaBrouillon.addEventListener("submit", async (evenement) => {
   iaEnregistrement = true;
   const ouverture = iaOuverture;
   let photoPerdue = false;
-  // Photo gardée : réduite à 800 px (environ 100 Ko)
+  // Photo gardée : réduite, puis rangée dans la mémoire des photos
+  // (IndexedDB, photos.js) ; la fiche ne garde que son identifiant
   if (iaGarderPhoto.checked && iaPhotos[iaPhotoChoisie]) {
     try {
-      infos.photoPerso = await photoPourFiche(iaPhotos[iaPhotoChoisie].fichier);
+      infos.photoId = await enregistrerPhoto(await photoPourFiche(iaPhotos[iaPhotoChoisie].fichier));
     } catch {
-      infos.photoPerso = null;
+      photoPerdue = true; // photo illisible ou mémoire des photos inaccessible
     }
-    if (ouverture !== iaOuverture) return; // page fermée entre-temps
-    if (!infos.photoPerso) {
-      delete infos.photoPerso;
-      photoPerdue = true;
+    if (ouverture !== iaOuverture) {
+      if (infos.photoId) supprimerPhoto(infos.photoId).catch(() => {});
+      return; // page fermée entre-temps
     }
   }
 
-  // Mémoire de l'app pleine : on réessaie sans la photo, sinon on prévient
-  // (la fiche à moitié ajoutée est retirée, rien n'est perdu du brouillon)
+  // Mémoire de l'app pleine : on prévient (la fiche à moitié ajoutée est
+  // retirée, rien n'est perdu du brouillon)
   const avant = elements.length;
-  const essayer = () => {
-    try {
-      ajouter(b.titre, b.type, infos);
-      return true;
-    } catch {
-      elements.length = avant;
-      return false;
-    }
-  };
-  let reussi = essayer();
-  if (!reussi && infos.photoPerso) {
-    delete infos.photoPerso;
-    photoPerdue = true;
-    reussi = essayer();
+  let reussi = true;
+  try {
+    ajouter(b.titre, b.type, infos);
+  } catch {
+    elements.length = avant;
+    reussi = false;
   }
   iaEnregistrement = false;
   if (!reussi) {
+    if (infos.photoId) supprimerPhoto(infos.photoId).catch(() => {});
     afficherMessage("Impossible d'enregistrer : la mémoire de l'app est pleine.", false, iaMessageBrouillon);
     return;
   }
@@ -1946,7 +1945,7 @@ iaBrouillon.addEventListener("submit", async (evenement) => {
   pageIa.close();
   ouvrirFiche(id);
   if (photoPerdue) {
-    window.alert("La fiche est enregistrée, mais sans la photo (mémoire de l'app presque pleine ou photo illisible).");
+    window.alert("La fiche est enregistrée, mais sans la photo (photo illisible ou mémoire des photos inaccessible).");
   }
 });
 
@@ -1969,8 +1968,14 @@ const FORMAT_NOM = "mes-listes";
 // Un fichier sans notes laisse les notes actuelles intactes.
 // Version 10 : plus d'historique « supprimes » (suppression définitive) ;
 // celui des anciens fichiers est ignoré à l'import.
-// L'app sait lire les dix. Les clés (TMDB, RAWG, Gemini) n'y sont jamais.
-const FORMAT_VERSION = 10;
+// Version 11 : les photos gardées sont rangées dans IndexedDB ; la fiche
+// garde « photoId » et le fichier contient « photos » : { id: image JPEG
+// en texte }. Les anciennes photos « photoPerso » (versions 8 à 10) sont
+// rangées dans IndexedDB après l'import.
+// L'app sait lire les onze. Les clés (TMDB, RAWG, Gemini) n'y sont jamais.
+const FORMAT_VERSION = 11;
+// Taille maximale d'une photo dans un fichier de sauvegarde (texte base64)
+const LONGUEUR_MAX_PHOTO_FICHIER = 5 * 1024 * 1024;
 
 const boutonExporter = document.getElementById("bouton-exporter");
 const boutonImporter = document.getElementById("bouton-importer");
@@ -2009,6 +2014,28 @@ function resumer(lesElements) {
 // Proposer le fichier à l'utilisateur.
 // - Sur iPhone / téléphone : le menu de partage ("Enregistrer dans Fichiers", AirDrop…)
 // - Sur ordinateur : un téléchargement classique
+// Photos des fiches, écrites en texte pour le fichier de sauvegarde
+// (version 11) : { "p-…": "data:image/jpeg;base64,…" }. Préparées dès
+// l'ouverture de « Sauvegarde » : sur iPhone, le menu de partage doit
+// s'ouvrir très vite après l'appui sur « Exporter ».
+const photosEnTexte = new Map();
+async function preparerPhotosExport() {
+  for (const el of elements) {
+    if (!el.photoId || photosEnTexte.has(el.photoId)) continue;
+    try {
+      const fichier = await lirePhoto(el.photoId);
+      if (fichier) photosEnTexte.set(el.photoId, await photoEnTexte(fichier));
+    } catch {
+      // photo illisible : la fiche sera exportée sans elle
+    }
+  }
+  const photos = {};
+  for (const el of elements) {
+    if (el.photoId && photosEnTexte.has(el.photoId)) photos[el.photoId] = photosEnTexte.get(el.photoId);
+  }
+  return photos;
+}
+
 async function exporter() {
   const donnees = {
     format: FORMAT_NOM,
@@ -2016,6 +2043,7 @@ async function exporter() {
     dateExport: new Date().toISOString(),
     elements: elements,
     notes: notesPourExport(), // version 9 : notes de Réglages → Notes
+    photos: await preparerPhotosExport(), // version 11 : photos des fiches
   };
   const texte = JSON.stringify(donnees, null, 2); // indenté : lisible à l'œil
   const date = new Date().toLocaleDateString("sv-SE"); // donne "2026-11-09"
@@ -2129,9 +2157,24 @@ function verifierFichier(donnees) {
     return propre;
   });
 
+  // Photos des fiches (version 11) : seulement celles d'une fiche du
+  // fichier, en JPEG ; une fiche dont la photo manque est gardée sans photo
+  const photos = {};
+  const photosFichier = typeof donnees.photos === "object" && donnees.photos !== null ? donnees.photos : {};
+  for (const el of nouveauxElements) {
+    if (!el.photoId) continue;
+    const texte = Object.hasOwn(photosFichier, el.photoId) ? photosFichier[el.photoId] : null;
+    if (typeof texte === "string" && texte.length <= LONGUEUR_MAX_PHOTO_FICHIER &&
+        /^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/.test(texte)) {
+      photos[el.photoId] = texte;
+    } else {
+      delete el.photoId;
+    }
+  }
+
   // Notes (version 9, facultatives) : null si le fichier n'en contient pas
   // (les notes actuelles seront alors gardées) ; vérifiées dans notes.js
-  return { elements: nouveauxElements, notes: verifierNotesFichier(donnees.notes) };
+  return { elements: nouveauxElements, notes: verifierNotesFichier(donnees.notes), photos };
 }
 
 // Le fichier a été choisi : on le lit, on le vérifie, puis on demande confirmation
@@ -2183,27 +2226,90 @@ async function lireFichierChoisi() {
 }
 
 // Remplace toute la liste par le fichier importé
-function remplacerListe() {
-  if (!importEnAttente) return;
+async function remplacerListe() {
+  if (!importEnAttente || boutonRemplacer.disabled) return;
+  const enAttente = importEnAttente;
+  boutonRemplacer.disabled = true;
+  // 1. Les photos du fichier d'abord, dans la mémoire des photos. Si elle
+  //    est inaccessible, les fiches sont importées sans leur photo.
+  let photosPerdues = 0;
+  for (const [id, texte] of Object.entries(enAttente.photos)) {
+    try {
+      await enregistrerPhoto(texteEnPhoto(texte), id);
+      oublierAdressePhoto(id); // une ancienne image avec ce nom ne doit plus s'afficher
+    } catch {
+      photosPerdues++;
+      for (const el of enAttente.elements) if (el.photoId === id) delete el.photoId;
+    }
+  }
+  boutonRemplacer.disabled = false;
+  // 2. La liste et les notes
   const anciensElements = elements;
-  elements = importEnAttente.elements;
+  elements = enAttente.elements;
   try {
     sauvegarder();
     // Notes du fichier (s'il en contient) ; en cas d'échec, notes.js
     // remet les anciennes et on remet aussi la liste
-    if (importEnAttente.notes !== null) remplacerNotes(importEnAttente.notes);
+    if (enAttente.notes !== null) remplacerNotes(enAttente.notes);
   } catch (erreur) {
     // Mémoire du téléphone pleine, etc. : on remet tout comme avant
     elements = anciensElements;
     sauvegarder();
     fenetreImport.close();
+    nettoyerPhotos(); // photos du fichier qui ne servent finalement pas
     afficherMessage("Impossible d'enregistrer la nouvelle liste (mémoire pleine ?). Rien n'a été modifié.", false);
     return;
   }
   fenetreImport.close();
+  photosEnTexte.clear();
   afficher();
-  afficherMessage(`Import réussi : ${resumer(elements)}.`, true);
+  afficherMessage(`Import réussi : ${resumer(elements)}.` +
+    (photosPerdues > 1 ? ` ${photosPerdues} photos n'ont pas pu être enregistrées.`
+      : photosPerdues ? " 1 photo n'a pas pu être enregistrée." : ""), true);
   completerImdbManquants(); // un ancien fichier n'a pas encore les liens IMDb
+  // 3. Ménage : photos des anciennes fiches, et anciennes photos en texte
+  //    (fichiers des versions 8 à 10) rangées dans la mémoire des photos
+  await rangerAnciennesPhotos();
+  nettoyerPhotos();
+}
+
+// Efface de la mémoire des photos celles qu'aucune fiche n'utilise plus.
+// Seulement après un import réussi : la liste est alors sûre.
+async function nettoyerPhotos() {
+  try {
+    const utilisees = new Set(elements.map((el) => el.photoId).filter(Boolean));
+    for (const id of await idsDesPhotos()) {
+      if (!utilisees.has(id)) await supprimerPhoto(id);
+    }
+  } catch {
+    // mémoire des photos inaccessible : rien à faire
+  }
+}
+
+// Photos gardées avant la v1.19 : écrites en texte dans la fiche
+// (« photoPerso »). On les range dans la mémoire des photos ; la fiche ne
+// garde plus que l'identifiant. Rien n'est effacé avant d'être bien rangé.
+async function rangerAnciennesPhotos() {
+  let change = false;
+  for (const el of elements.filter((e) => typeof e.photoPerso === "string")) {
+    const fichier = texteEnPhoto(el.photoPerso);
+    if (!fichier) continue;
+    try {
+      el.photoId = await enregistrerPhoto(fichier);
+    } catch {
+      break; // mémoire des photos inaccessible : l'ancienne forme reste affichée
+    }
+    delete el.photoPerso;
+    change = true;
+  }
+  if (!change) return;
+  try {
+    sauvegarder();
+  } catch {
+    // ne devrait pas arriver : la liste devient plus légère
+  }
+  afficher();
+  if (pageFiche.open) afficherFiche();
 }
 
 boutonExporter.addEventListener("click", async () => {
@@ -2627,13 +2733,14 @@ function creerVignette(affiche, type) {
 
   const image = document.createElement("img");
   image.className = "vignette";
-  image.src = affiche;
   image.alt = "";
   image.loading = "lazy";
   // Le site de la photo ne sait pas qu'elle est affichée dans l'app
   // (certains sites refusent aussi leurs photos quand on l'indique)
   image.referrerPolicy = "no-referrer";
   image.addEventListener("error", () => image.replaceWith(vide));
+  // Adresse web, ou photo rangée dans la mémoire des photos (« idb:… »)
+  poserSource(image, affiche, () => image.replaceWith(vide));
   return image;
 }
 
@@ -2775,6 +2882,10 @@ champTitre.addEventListener("input", () => {
 localStorage.removeItem("mes-listes-section-ouverte"); // ancien réglage, devenu inutile
 document.getElementById("version").textContent = VERSION;
 allerA("accueil");
+// Mémoire des photos (v1.19) : on demande au navigateur de la conserver,
+// puis on y range les photos gardées avant cette version
+demanderConservation();
+rangerAnciennesPhotos();
 completerImdbManquants();
 // Revenu en ligne (métro, avion…) : on complète ce qui manque encore
 window.addEventListener("online", completerImdbManquants);
