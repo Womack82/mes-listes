@@ -6,11 +6,19 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.17";
+const VERSION = "v1.18";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
-const CLE_SUPPRIMES = "mes-listes-supprimes";
+// Ancien historique « Supprimés » (titre, type, date des éléments supprimés),
+// retiré en v1.18 : la suppression est maintenant définitive. L'historique
+// déjà enregistré est effacé de l'appareil au démarrage.
+const CLE_SUPPRIMES_ANCIENNE = "mes-listes-supprimes";
+try {
+  localStorage.removeItem(CLE_SUPPRIMES_ANCIENNE);
+} catch {
+  // mémoire inaccessible : rien à faire
+}
 
 // Emoji affiché devant chaque type
 const EMOJIS = { film: "🎬", serie: "📺", jeu: "🎮", recette: "🍳", cocktail: "🍸", autre: "📌" };
@@ -38,16 +46,12 @@ function charger(cle) {
 // --- 2. Sauvegarder les données ------------------------------
 function sauvegarder() {
   localStorage.setItem(CLE_STOCKAGE, JSON.stringify(elements));
-  localStorage.setItem(CLE_SUPPRIMES, JSON.stringify(supprimes));
 }
 
 // Les éléments de la liste. Chacun ressemble à :
 // { id: "1731...", titre: "Inception", type: "film", fait: false }
 let elements = charger(CLE_STOCKAGE);
 
-// Les éléments supprimés (on ne garde que l'essentiel) :
-// { titre: "Inception", type: "film", dateSuppression: "2026-11-09T14:30:00.000Z" }
-let supprimes = charger(CLE_SUPPRIMES);
 
 // Migration (v1.9) : une recette cochée « faite » avant que les recettes
 // deviennent des fiches redevient une fiche normale (rien n'est perdu)
@@ -88,9 +92,6 @@ const onglets = document.querySelectorAll(".onglet");
 const listeFaits = document.getElementById("liste-faits");
 const badgeFaits = document.getElementById("badge-faits");
 const faitsVide = document.getElementById("faits-vide");
-const listeSupprimes = document.getElementById("liste-supprimes");
-const badgeSupprimes = document.getElementById("badge-supprimes");
-const supprimesVide = document.getElementById("supprimes-vide");
 const listeAutres = document.getElementById("liste-autres");
 const badgeAutres = document.getElementById("badge-autres");
 const ligneAutres = document.getElementById("ligne-autres");
@@ -151,14 +152,13 @@ function texteAjout(el) {
 // Accueil : 5 carrés (nombre à faire ; nombre de fiches pour Recettes et
 // Cocktails) + 4 derniers ajoutés.
 // Page catégorie : les éléments à faire (ou toutes les fiches) de cette catégorie.
-// Panneau Réglages : terminés, supprimés, anciens « Autre ».
+// Panneau Réglages : terminés, anciens « Autre ».
 // animer = true : les cartes apparaissent en fondu, l'une après l'autre
 // (seulement en arrivant sur une page, pas après chaque coche).
 function afficher(animer = false) {
   const aFaire = elements.filter((el) => !el.fait);
   const faits = elements.filter((el) => el.fait);
   const autres = aFaire.filter((el) => el.type === "autre");
-  const supprimesRecents = [...supprimes].reverse(); // le plus récent en haut
 
   // Carrés de l'accueil
   // (une fiche n'est jamais « faite » : aFaire contient toutes les fiches)
@@ -192,14 +192,11 @@ function afficher(animer = false) {
 
   // Panneau Réglages
   listeFaits.replaceChildren(...faits.map((el) => creerCarte(el)));
-  listeSupprimes.replaceChildren(...supprimesRecents.map(creerLigneSupprimee));
   listeAutres.replaceChildren(...autres.map((el) => creerCarte(el)));
   badgeFaits.textContent = faits.length;
-  badgeSupprimes.textContent = supprimes.length;
   badgeAutres.textContent = autres.length;
   ligneAutres.hidden = autres.length === 0;
   faitsVide.hidden = faits.length > 0;
-  supprimesVide.hidden = supprimes.length > 0;
 
   if (animer && !sansAnimation.matches) {
     const blocs = pageActive === "accueil"
@@ -322,31 +319,6 @@ function creerCarte(el, avecDate = false) {
   }
   // Pas de case à cocher pour une fiche
   if (!fiche) li.append(zone);
-  return li;
-}
-
-// Fabrique une ligne de l'historique « Supprimés » (lecture seule, aucun bouton)
-function creerLigneSupprimee(el) {
-  const li = document.createElement("li");
-  li.className = "carte supprime";
-
-  const icone = document.createElement("span");
-  icone.className = "mini-vignette";
-  icone.append(creerIcone(ICONES_TYPES[el.type]));
-
-  const titre = document.createElement("span");
-  titre.className = "carte-titre";
-  titre.textContent = el.titre;
-
-  const date = document.createElement("span");
-  date.className = "date";
-  date.textContent = new Date(el.dateSuppression).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
-  li.append(icone, titre, date);
   return li;
 }
 
@@ -489,16 +461,8 @@ function modifier(id, titre, type, recette = null) {
   afficher();
 }
 
-// L'élément part dans "Supprimés".
-// On n'y garde que titre, type et date : l'affiche, l'année et
-// les identifiants TMDB / IMDb / RAWG sont perdus.
+// Suppression définitive (plus d'historique « Supprimés » depuis la v1.18)
 function supprimer(id) {
-  const el = elements.find((e) => e.id === id);
-  supprimes.push({
-    titre: el.titre,
-    type: el.type,
-    dateSuppression: new Date().toISOString(),
-  });
   elements = elements.filter((e) => e.id !== id);
   sauvegarder();
   afficher();
@@ -726,7 +690,7 @@ document.getElementById("edition-annuler").addEventListener("click", () => {
 });
 
 // « Supprimer » : premier appui → « Confirmer la suppression ? » pendant
-// 3 secondes ; deuxième appui → l'élément part dans « Supprimés »
+// 3 secondes ; deuxième appui → l'élément est supprimé définitivement
 actionsSupprimer.addEventListener("click", () => {
   if (idActions === null) return;
   if (actionsSupprimer.classList.contains("confirmer")) {
@@ -763,7 +727,6 @@ const reglagesRetour = document.getElementById("reglages-retour");
 const VUES = {
   menu: { titre: "Réglages", bloc: document.getElementById("vue-menu") },
   faits: { titre: "Terminés", bloc: document.getElementById("vue-faits") },
-  supprimes: { titre: "Supprimés", bloc: document.getElementById("vue-supprimes") },
   autres: { titre: "Anciens « Autre »", bloc: document.getElementById("vue-autres") },
   sauvegarde: { titre: "Sauvegarde", bloc: document.getElementById("vue-sauvegarde") },
   cles: { titre: "Clés API", bloc: document.getElementById("vue-cles") },
@@ -1482,7 +1445,7 @@ document.getElementById("fiche-modifier").addEventListener("click", () => {
 
 // « Supprimer » : comme dans le panneau d'actions, premier appui →
 // « Confirmer la suppression ? » pendant 3 secondes ; deuxième appui →
-// la fiche part dans « Supprimés » (on n'y garde que le titre)
+// la fiche est supprimée définitivement
 function annulerSuppressionFiche() {
   clearTimeout(minuteurSuppressionFiche);
   ficheSupprimer.textContent = "Supprimer";
@@ -2004,8 +1967,10 @@ const FORMAT_NOM = "mes-listes";
 // (quantité, unité, nom) et une photo gardée dans la fiche (image JPEG).
 // Version 9 : + notes (Réglages → Notes) : texte, état, date de création.
 // Un fichier sans notes laisse les notes actuelles intactes.
-// L'app sait lire les neuf. Les clés (TMDB, RAWG, Gemini) n'y sont jamais.
-const FORMAT_VERSION = 9;
+// Version 10 : plus d'historique « supprimes » (suppression définitive) ;
+// celui des anciens fichiers est ignoré à l'import.
+// L'app sait lire les dix. Les clés (TMDB, RAWG, Gemini) n'y sont jamais.
+const FORMAT_VERSION = 10;
 
 const boutonExporter = document.getElementById("bouton-exporter");
 const boutonImporter = document.getElementById("bouton-importer");
@@ -2035,10 +2000,10 @@ function pluriel(nombre, mot) {
   return `${nombre} ${mot}${nombre > 1 ? "s" : ""}`;
 }
 
-// Résumé lisible d'une liste : "12 à faire, 5 terminés, 3 supprimés"
-function resumer(lesElements, lesSupprimes) {
+// Résumé lisible d'une liste : "12 à faire, 5 terminés"
+function resumer(lesElements) {
   const faits = lesElements.filter((e) => e.fait).length;
-  return `${lesElements.length - faits} à faire, ${pluriel(faits, "terminé")}, ${pluriel(lesSupprimes.length, "supprimé")}`;
+  return `${lesElements.length - faits} à faire, ${pluriel(faits, "terminé")}`;
 }
 
 // Proposer le fichier à l'utilisateur.
@@ -2050,7 +2015,6 @@ async function exporter() {
     version: FORMAT_VERSION,
     dateExport: new Date().toISOString(),
     elements: elements,
-    supprimes: supprimes,
     notes: notesPourExport(), // version 9 : notes de Réglages → Notes
   };
   const texte = JSON.stringify(donnees, null, 2); // indenté : lisible à l'œil
@@ -2083,8 +2047,9 @@ async function exporter() {
   return true;
 }
 
-// Vérifie le contenu d'un fichier. Renvoie { elements, supprimes } si tout
+// Vérifie le contenu d'un fichier. Renvoie { elements, notes } si tout
 // est correct, sinon lance une erreur avec un message clair.
+// L'historique « supprimes » des anciens fichiers (versions 1 à 9) est ignoré.
 // On recopie seulement les champs connus, pour ne rien garder d'inattendu.
 function verifierFichier(donnees) {
   if (typeof donnees !== "object" || donnees === null || donnees.format !== FORMAT_NOM) {
@@ -2096,7 +2061,7 @@ function verifierFichier(donnees) {
   if (donnees.version > FORMAT_VERSION) {
     throw new Error("Ce fichier vient d'une version plus récente de l'app. Mets l'app à jour puis réessaie.");
   }
-  if (!Array.isArray(donnees.elements) || !Array.isArray(donnees.supprimes)) {
+  if (!Array.isArray(donnees.elements)) {
     throw new Error("Le fichier est incomplet : il manque la liste des éléments.");
   }
 
@@ -2164,20 +2129,9 @@ function verifierFichier(donnees) {
     return propre;
   });
 
-  const nouveauxSupprimes = donnees.supprimes.map((el, i) => {
-    const numero = `L'élément supprimé n°${i + 1}`;
-    if (typeof el !== "object" || el === null) throw new Error(`${numero} est illisible.`);
-    if (!titreValide(el.titre)) throw new Error(`${numero} n'a pas de titre.`);
-    if (!typeValide(el.type)) throw new Error(`${numero} a un type inconnu (« ${el.type} »).`);
-    if (typeof el.dateSuppression !== "string" || isNaN(Date.parse(el.dateSuppression))) {
-      throw new Error(`${numero} a une date de suppression invalide.`);
-    }
-    return { titre: el.titre.trim(), type: el.type, dateSuppression: el.dateSuppression };
-  });
-
   // Notes (version 9, facultatives) : null si le fichier n'en contient pas
   // (les notes actuelles seront alors gardées) ; vérifiées dans notes.js
-  return { elements: nouveauxElements, supprimes: nouveauxSupprimes, notes: verifierNotesFichier(donnees.notes) };
+  return { elements: nouveauxElements, notes: verifierNotesFichier(donnees.notes) };
 }
 
 // Le fichier a été choisi : on le lit, on le vérifie, puis on demande confirmation
@@ -2203,21 +2157,23 @@ async function lireFichierChoisi() {
   }
 
   // Préparer la fenêtre de confirmation
-  const nbActuels = elements.length + supprimes.length;
-  const nbImportes = importEnAttente.elements.length + importEnAttente.supprimes.length;
+  const nbActuels = elements.length;
+  const nbImportes = importEnAttente.elements.length;
   // Notes (version 9) : remplacées seulement si le fichier en contient
   const notesDuFichier = importEnAttente.notes;
   const notesPerdues = notesDuFichier === null ? 0 : notes.length;
   const listeVide = nbActuels === 0 && notesPerdues === 0;
   const phraseNotes = notesDuFichier === null
-    ? (notes.length ? ` Le fichier ne contient pas de notes : tes ${pluriel(notes.length, "note")} sont gardées.` : "")
+    ? (notes.length
+      ? ` Le fichier ne contient pas de notes : ${notes.length > 1 ? `tes ${notes.length} notes sont gardées` : "ta note est gardée"}.`
+      : "")
     : (notes.length
-      ? ` Tes ${pluriel(notes.length, "note")} seront remplacées par les ${pluriel(notesDuFichier.length, "note")} du fichier.`
+      ? ` ${notes.length > 1 ? `Tes ${notes.length} notes seront remplacées` : "Ta note sera remplacée"} par les notes du fichier (${notesDuFichier.length}).`
       : ` Le fichier contient ${pluriel(notesDuFichier.length, "note")}.`);
   texteImport.textContent = (nbActuels === 0
-    ? `Ta liste actuelle est vide. Elle sera remplacée par celle du fichier (${resumer(importEnAttente.elements, importEnAttente.supprimes)}).`
-    : `Tu vas perdre ${pluriel(nbActuels, "élément")} de ta liste actuelle (${resumer(elements, supprimes)}). ` +
-      `Ils seront remplacés par les ${pluriel(nbImportes, "élément")} du fichier (${resumer(importEnAttente.elements, importEnAttente.supprimes)}).`) +
+    ? `Ta liste actuelle est vide. Elle sera remplacée par celle du fichier (${resumer(importEnAttente.elements)}).`
+    : `Tu vas perdre ${pluriel(nbActuels, "élément")} de ta liste actuelle (${resumer(elements)}). ` +
+      `Ils seront remplacés par les ${pluriel(nbImportes, "élément")} du fichier (${resumer(importEnAttente.elements)}).`) +
     phraseNotes;
   // Pas de sauvegarde à proposer si rien ne sera perdu
   conseilSauvegarde.hidden = listeVide;
@@ -2230,9 +2186,7 @@ async function lireFichierChoisi() {
 function remplacerListe() {
   if (!importEnAttente) return;
   const anciensElements = elements;
-  const anciensSupprimes = supprimes;
   elements = importEnAttente.elements;
-  supprimes = importEnAttente.supprimes;
   try {
     sauvegarder();
     // Notes du fichier (s'il en contient) ; en cas d'échec, notes.js
@@ -2241,7 +2195,6 @@ function remplacerListe() {
   } catch (erreur) {
     // Mémoire du téléphone pleine, etc. : on remet tout comme avant
     elements = anciensElements;
-    supprimes = anciensSupprimes;
     sauvegarder();
     fenetreImport.close();
     afficherMessage("Impossible d'enregistrer la nouvelle liste (mémoire pleine ?). Rien n'a été modifié.", false);
@@ -2249,7 +2202,7 @@ function remplacerListe() {
   }
   fenetreImport.close();
   afficher();
-  afficherMessage(`Import réussi : ${resumer(elements, supprimes)}.`, true);
+  afficherMessage(`Import réussi : ${resumer(elements)}.`, true);
   completerImdbManquants(); // un ancien fichier n'a pas encore les liens IMDb
 }
 
@@ -2817,7 +2770,7 @@ champTitre.addEventListener("input", () => {
 });
 
 // --- 9. Démarrage --------------------------------------------
-// Les sections "Terminés" et "Supprimés" sont fermées à chaque ouverture
+// La section « Terminés » est fermée à chaque ouverture
 // de l'app (c'est le comportement par défaut de <details>).
 localStorage.removeItem("mes-listes-section-ouverte"); // ancien réglage, devenu inutile
 document.getElementById("version").textContent = VERSION;

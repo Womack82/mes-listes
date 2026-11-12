@@ -324,22 +324,6 @@ h1, h2 { color: var(--texte); }
 .carte.fait .carte-titre { text-decoration: line-through; color: var(--gris); }
 .carte.fait .vignette { opacity: 0.5; }
 
-/* Historique des supprimés : petite icône du type, titre, date */
-.carte.supprime { padding: 10px 14px 10px 10px; gap: 12px; }
-.carte.supprime .carte-titre { flex: 1; font-weight: 600; color: var(--gris); }
-.mini-vignette {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  border-radius: 14px;
-  background: linear-gradient(160deg, var(--texte), var(--bleu));
-  color: var(--accent-survol);
-}
-.carte.supprime .date { font-size: 13px; color: var(--gris); flex-shrink: 0; }
-
 .aide { color: var(--gris); }
 .aide.vide { text-align: center; padding: 16px 0; }
 

@@ -142,12 +142,6 @@
           <span id="badge-faits" class="badge">0</span>
           <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
         </button>
-        <button type="button" class="ligne-reglage" data-vue="supprimes">
-          <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></span>
-          <span class="ligne-textes"><span class="ligne-titre">Supprimés</span></span>
-          <span id="badge-supprimes" class="badge">0</span>
-          <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
-        </button>
         <!-- Anciens éléments « Autre » (catégorie retirée) : visible seulement s'il en reste -->
         <button type="button" id="ligne-autres" class="ligne-reglage" data-vue="autres" hidden>
           <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M9 3h6 M10 3v6l-3 4h10l-3-4V3 M12 13v8"/></svg></span>
@@ -214,16 +208,10 @@
         <p id="faits-vide" class="aide vide">Aucun élément terminé.</p>
       </div>
 
-      <!-- Supprimés : historique en lecture seule, le plus récent en haut -->
-      <div id="vue-supprimes" hidden>
-        <ul id="liste-supprimes" class="liste"></ul>
-        <p id="supprimes-vide" class="aide vide">Aucun élément supprimé.</p>
-      </div>
-
       <!-- Sauvegarde : exporter / importer toute la liste -->
       <div id="vue-sauvegarde" class="sauvegarde" hidden>
         <p class="aide">
-          Exporter crée un fichier avec tous tes éléments (à faire, terminés, supprimés).
+          Exporter crée un fichier avec tous tes éléments (à faire, terminés) et tes notes.
           Importer remplace toute la liste par celle d'un fichier exporté.
         </p>
         <div class="boutons-sauvegarde">
