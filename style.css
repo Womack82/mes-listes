@@ -440,6 +440,11 @@ h1, h2 { color: var(--texte); }
   background: transparent;
   overflow: hidden;
 }
+/* À l'ouverture, c'est la carte du menu qui reçoit le focus (autofocus) et
+   non le premier bouton : pas de contour sur « Film ». Le menu lui-même
+   n'en affiche pas non plus. */
+.menu-categories:focus,
+.menu-carte:focus { outline: none; }
 .menu-categories::backdrop { background: var(--voile); }
 .menu-categories[open]::backdrop { animation: fondu 200ms ease-out; }
 
