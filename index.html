@@ -435,6 +435,14 @@
         Pas encore d'ingrédients ni d'étapes. Touchez « Modifier » pour les ajouter.
       </p>
 
+      <!-- Photo de la fiche : changer (sans IA) ou retirer -->
+      <div class="fiche-boutons-photo">
+        <button type="button" id="fiche-changer-photo" class="bouton-action">Changer la photo</button>
+        <button type="button" id="fiche-retirer-photo" class="bouton-action" hidden>Retirer la photo</button>
+      </div>
+      <input type="file" id="fiche-fichier-photo" accept="image/*" hidden>
+      <p id="fiche-message-photo" class="message erreur" role="status" hidden></p>
+
       <div class="boutons-actions fiche-boutons">
         <button type="button" id="fiche-modifier" class="bouton-action">Modifier</button>
         <button type="button" id="fiche-supprimer" class="bouton-action supprimer">Supprimer</button>
@@ -506,6 +514,18 @@
           <button type="button" id="ia-ajouter-photo" class="bouton-contour">+ Ajouter une photo</button>
           <input type="file" id="ia-fichiers" accept="image/*" multiple hidden>
           <p id="ia-message-photos" class="message erreur" role="status" hidden></p>
+        </div>
+        <!-- Photo de la fiche (vignette) : facultative, JAMAIS envoyée à l'IA -->
+        <div class="fiche-bloc verre">
+          <h3>Photo de la fiche <span class="ia-compte">facultatif</span></h3>
+          <p class="aide ia-aide-vignette">Elle devient l'image de la fiche. Elle n'est pas envoyée à l'IA.</p>
+          <div id="ia-vignette" class="ia-miniature ia-vignette" hidden>
+            <img id="ia-vignette-image" alt="Photo de la fiche">
+            <button type="button" id="ia-vignette-retirer" class="ia-retirer" aria-label="Retirer la photo de la fiche">✕</button>
+          </div>
+          <button type="button" id="ia-vignette-choisir" class="bouton-contour">+ Choisir la photo de la fiche</button>
+          <input type="file" id="ia-vignette-fichier" accept="image/*" hidden>
+          <p id="ia-message-vignette" class="message erreur" role="status" hidden></p>
         </div>
         <div class="fiche-bloc verre ia-champs">
           <h3><label for="ia-texte">Texte</label></h3>
@@ -583,7 +603,12 @@
 
         <!-- Garder une photo : décoché par défaut ; sinon aucune photo n'est gardée -->
         <div id="ia-bloc-photo" class="fiche-bloc verre">
-          <label class="ia-case">
+          <!-- Photo de la fiche choisie à l'étape 1 : elle remplace la case -->
+          <div id="ia-rappel-vignette" class="ia-rappel-vignette" hidden>
+            <img id="ia-rappel-vignette-image" alt="">
+            <span>Photo de la fiche : celle que vous avez choisie (non envoyée à l'IA).</span>
+          </div>
+          <label id="ia-case-garder" class="ia-case">
             <input type="checkbox" id="ia-garder-photo">
             <span>Garder une photo comme image de la fiche</span>
           </label>

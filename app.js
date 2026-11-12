@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.19";
+const VERSION = "v1.20";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -1255,6 +1255,7 @@ function ouvrirFiche(id) {
   idFiche = id;
   personnesFiche = null;
   annulerSuppressionFiche();
+  ficheMessagePhoto.hidden = true;
   afficherFiche();
   verrouillerPage();
   pageFiche.showModal();
@@ -1283,6 +1284,7 @@ function afficherFiche() {
   ficheType.textContent = NOMS_SIMPLES[el.type];
   ficheTitre.textContent = el.titre;
   afficherPhotos(el);
+  majBoutonsPhotoFiche(el);
 
   // Petites pastilles : temps, portions ; pour un cocktail, le verre, la
   // méthode et l'alcool de base à la place de la cuisson
@@ -1469,6 +1471,89 @@ ficheSupprimer.addEventListener("click", () => {
   minuteurSuppressionFiche = setTimeout(annulerSuppressionFiche, 3000);
 });
 
+// « Changer la photo » / « Retirer la photo » : la photo de la fiche,
+// choisie dans la photothèque ou prise avec l'appareil photo, sans IA.
+// Réduite sur l'appareil (1200 px, JPEG 80 %) puis rangée dans la mémoire
+// des photos ; l'ancienne est effacée. Les photos venues d'un site web
+// restent derrière, dans le défilement.
+const ficheChangerPhoto = document.getElementById("fiche-changer-photo");
+const ficheRetirerPhoto = document.getElementById("fiche-retirer-photo");
+const ficheFichierPhoto = document.getElementById("fiche-fichier-photo");
+const ficheMessagePhoto = document.getElementById("fiche-message-photo");
+const TEXTE_CHANGER_PHOTO = "Changer la photo";
+
+function majBoutonsPhotoFiche(el) {
+  const aSaPhoto = Boolean(el.photoId || el.photoPerso);
+  ficheChangerPhoto.textContent = aSaPhoto || (el.images || []).length ? TEXTE_CHANGER_PHOTO : "Ajouter une photo";
+  ficheChangerPhoto.disabled = false;
+  ficheRetirerPhoto.hidden = !aSaPhoto;
+}
+
+// Remplace la photo de la fiche (null : la retire) ; renvoie true si c'est fait
+function remplacerPhotoFiche(el, nouvelId) {
+  const ancienId = el.photoId;
+  const ancienTexte = el.photoPerso;
+  if (nouvelId) el.photoId = nouvelId; else delete el.photoId;
+  delete el.photoPerso;
+  try {
+    sauvegarder();
+  } catch {
+    // mémoire pleine : on remet comme avant
+    if (ancienId) el.photoId = ancienId; else delete el.photoId;
+    if (ancienTexte) el.photoPerso = ancienTexte;
+    if (nouvelId) supprimerPhoto(nouvelId).catch(() => {});
+    afficherMessage("Impossible d'enregistrer : la mémoire de l'app est pleine.", false, ficheMessagePhoto);
+    return false;
+  }
+  if (ancienId && ancienId !== nouvelId) supprimerPhoto(ancienId).catch(() => {});
+  photosEnTexte.delete(ancienId);
+  afficher();
+  afficherFiche();
+  fichePhotos.scrollLeft = 0;
+  return true;
+}
+
+ficheChangerPhoto.addEventListener("click", () => {
+  ficheMessagePhoto.hidden = true;
+  ficheFichierPhoto.click();
+});
+ficheFichierPhoto.addEventListener("change", async () => {
+  const fichier = ficheFichierPhoto.files[0];
+  ficheFichierPhoto.value = ""; // permet de rechoisir la même photo
+  const id = idFiche;
+  const el = elements.find((e) => e.id === id);
+  if (!fichier || !el) return;
+  ficheChangerPhoto.disabled = true;
+  ficheChangerPhoto.textContent = "Préparation de la photo…";
+  let nouvelId = null;
+  let message = "";
+  try {
+    nouvelId = await enregistrerPhoto(await reduireImage(fichier, LIMITES_IA.coteGardee, LIMITES_IA.qualiteGardee));
+  } catch (erreur) {
+    message = erreur && erreur.code === "image"
+      ? MESSAGES_IA.image
+      : "Impossible d'enregistrer la photo sur cet appareil.";
+  }
+  // Fiche fermée, changée ou supprimée entre-temps : on n'y touche pas
+  if (idFiche !== id || !elements.includes(el)) {
+    if (nouvelId) supprimerPhoto(nouvelId).catch(() => {});
+    return;
+  }
+  majBoutonsPhotoFiche(el);
+  if (message) {
+    afficherMessage(message, false, ficheMessagePhoto);
+    return;
+  }
+  remplacerPhotoFiche(el, nouvelId);
+});
+ficheRetirerPhoto.addEventListener("click", () => {
+  const el = elements.find((e) => e.id === idFiche);
+  if (!el) return;
+  if (!window.confirm("Retirer la photo de cette fiche ? Elle sera effacée de l'app.")) return;
+  ficheMessagePhoto.hidden = true;
+  remplacerPhotoFiche(el, null);
+});
+
 // --- 5 bis. Ajouter avec l'IA : photos et texte → Gemini → brouillon ---
 // 1. On ajoute des photos (jusqu'à 6, réduites tout de suite) et / ou du texte.
 // 2. « Analyser avec l'IA » envoie tout à Gemini en une seule fois (ia.js).
@@ -1497,6 +1582,17 @@ const iaMessageBrouillon = document.getElementById("ia-message-brouillon");
 const iaBlocPhoto = document.getElementById("ia-bloc-photo");
 const iaGarderPhoto = document.getElementById("ia-garder-photo");
 const iaChoixPhoto = document.getElementById("ia-choix-photo");
+const iaCaseGarder = document.getElementById("ia-case-garder");
+// Photo de la fiche (vignette) : jamais envoyée à l'IA
+const iaVignetteBloc = document.getElementById("ia-vignette");
+const iaVignetteImage = document.getElementById("ia-vignette-image");
+const iaVignetteChoisir = document.getElementById("ia-vignette-choisir");
+const iaVignetteFichier = document.getElementById("ia-vignette-fichier");
+const iaMessageVignette = document.getElementById("ia-message-vignette");
+const iaRappelVignette = document.getElementById("ia-rappel-vignette");
+const iaRappelVignetteImage = document.getElementById("ia-rappel-vignette-image");
+// { fichier: JPEG réduit (1200 px), adresse: pour l'aperçu } ou null
+let iaVignette = null;
 // Champs du brouillon
 const iaB = {
   titre: document.getElementById("ia-b-titre"),
@@ -1545,6 +1641,7 @@ function viderIa() {
   iaControle = null;
   for (const photo of iaPhotos) URL.revokeObjectURL(photo.adresse);
   iaPhotos = [];
+  retirerVignetteIa();
   iaPreparation = false;
   iaEnregistrement = false;
   iaTexte.value = "";
@@ -1576,7 +1673,8 @@ function ouvrirIa(type, depart = {}) {
 
 // Fermer : on demande confirmation si quelque chose a été commencé
 function quitterIa() {
-  const commence = iaPhotos.length > 0 || iaTexte.value.trim() !== "" || !iaBrouillon.hidden || iaControle !== null;
+  const commence = iaPhotos.length > 0 || iaVignette !== null || iaTexte.value.trim() !== "" ||
+    !iaBrouillon.hidden || iaControle !== null;
   if (commence && !window.confirm("Quitter sans enregistrer ? Les photos, le texte et le brouillon seront perdus.")) return;
   pageIa.close();
 }
@@ -1687,6 +1785,49 @@ iaFichiers.addEventListener("change", async () => {
   if (problemes.length) afficherMessage(problemes.join(" "), false, iaMessagePhotos);
 });
 
+// --- Photo de la fiche (vignette) ---
+// Une seule photo, réduite tout de suite (1200 px, JPEG 80 %). Elle n'est
+// jamais envoyée à l'IA : elle devient seulement l'image de la fiche.
+function retirerVignetteIa() {
+  if (iaVignette) URL.revokeObjectURL(iaVignette.adresse);
+  iaVignette = null;
+  iaVignetteBloc.hidden = true;
+  iaVignetteImage.removeAttribute("src");
+  iaVignetteChoisir.hidden = false;
+  iaVignetteChoisir.disabled = false;
+  iaVignetteChoisir.textContent = "+ Choisir la photo de la fiche";
+  iaMessageVignette.hidden = true;
+  afficherChoixPhotoIa();
+}
+iaVignetteChoisir.addEventListener("click", () => iaVignetteFichier.click());
+document.getElementById("ia-vignette-retirer").addEventListener("click", retirerVignetteIa);
+iaVignetteFichier.addEventListener("change", async () => {
+  const fichier = iaVignetteFichier.files[0];
+  iaVignetteFichier.value = ""; // permet de rechoisir la même photo
+  if (!fichier) return;
+  const ouverture = iaOuverture;
+  iaMessageVignette.hidden = true;
+  iaVignetteChoisir.disabled = true;
+  iaVignetteChoisir.textContent = "Préparation de la photo…";
+  let reduite;
+  try {
+    reduite = await reduireImage(fichier, LIMITES_IA.coteGardee, LIMITES_IA.qualiteGardee);
+  } catch {
+    if (ouverture !== iaOuverture) return;
+    retirerVignetteIa();
+    afficherMessage(MESSAGES_IA.image, false, iaMessageVignette);
+    return;
+  }
+  if (ouverture !== iaOuverture) return; // page fermée entre-temps
+  if (iaVignette) URL.revokeObjectURL(iaVignette.adresse);
+  iaVignette = { fichier: reduite, adresse: URL.createObjectURL(reduite) };
+  iaVignetteImage.src = iaVignette.adresse;
+  iaVignetteBloc.hidden = false;
+  iaVignetteChoisir.hidden = true;
+  iaVignetteChoisir.disabled = false;
+  afficherChoixPhotoIa();
+});
+
 // --- Appel à Gemini (analyse ou revérification) ---
 // Montre la roue et « Annuler » ; en cas d'échec, revient à l'écran
 // d'avant avec un message simple. Rien de ce qui a été saisi n'est perdu.
@@ -1744,11 +1885,16 @@ function majTypeBrouillonIa() {
 }
 iaB.type.addEventListener("change", majTypeBrouillonIa);
 
-// Case « Garder une photo » : s'il y a plusieurs photos, on choisit laquelle
+// Case « Garder une photo » : s'il y a plusieurs photos, on choisit laquelle.
+// Une photo de la fiche choisie à l'étape 1 remplace la case (rappel).
 function afficherChoixPhotoIa() {
-  iaBlocPhoto.hidden = iaPhotos.length === 0;
+  const vignette = iaVignette !== null;
+  iaBlocPhoto.hidden = iaPhotos.length === 0 && !vignette;
+  iaRappelVignette.hidden = !vignette;
+  if (vignette) iaRappelVignetteImage.src = iaVignette.adresse;
+  iaCaseGarder.hidden = vignette;
   iaPhotoChoisie = Math.min(iaPhotoChoisie, Math.max(0, iaPhotos.length - 1));
-  iaChoixPhoto.hidden = !iaGarderPhoto.checked || iaPhotos.length < 2;
+  iaChoixPhoto.hidden = vignette || !iaGarderPhoto.checked || iaPhotos.length < 2;
   iaChoixPhoto.replaceChildren(...iaPhotos.map((photo, rang) => {
     const choix = document.createElement("label");
     choix.className = "ia-photo-choix";
@@ -1911,11 +2057,14 @@ iaBrouillon.addEventListener("submit", async (evenement) => {
   iaEnregistrement = true;
   const ouverture = iaOuverture;
   let photoPerdue = false;
-  // Photo gardée : réduite, puis rangée dans la mémoire des photos
-  // (IndexedDB, photos.js) ; la fiche ne garde que son identifiant
-  if (iaGarderPhoto.checked && iaPhotos[iaPhotoChoisie]) {
+  // Photo de la fiche : la vignette choisie (déjà réduite) ; sinon, la
+  // photo envoyée gardée avec la case. Rangée dans la mémoire des photos
+  // (IndexedDB, photos.js) ; la fiche ne garde que son identifiant.
+  const photoAGarder = iaVignette ? iaVignette.fichier
+    : iaGarderPhoto.checked && iaPhotos[iaPhotoChoisie] ? iaPhotos[iaPhotoChoisie].fichier : null;
+  if (photoAGarder) {
     try {
-      infos.photoId = await enregistrerPhoto(await photoPourFiche(iaPhotos[iaPhotoChoisie].fichier));
+      infos.photoId = await enregistrerPhoto(iaVignette ? photoAGarder : await photoPourFiche(photoAGarder));
     } catch {
       photoPerdue = true; // photo illisible ou mémoire des photos inaccessible
     }

@@ -30,8 +30,8 @@ const LIMITES_IA = {
   qualite: 0.8,                     // JPEG
   tailleTotale: 8 * 1024 * 1024,    // ~8 Mo pour toutes les photos
   texte: 20000,                     // caractères du texte collé
-  coteGardee: 800,                  // photo gardée dans la fiche
-  qualiteGardee: 0.7,
+  coteGardee: 1200,                 // photo de la fiche (vignette, photo gardée)
+  qualiteGardee: 0.8,
   avertissements: 12,
   longueurAvertissement: 400,
   longueurNotes: 1000,

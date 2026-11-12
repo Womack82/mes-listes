@@ -11,7 +11,6 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 
 - [ ] Déployer le relais sur Cloudflare (voir `relais/LISEZMOI-RELAIS.md`) et coller son adresse dans Réglages → Import de recettes
 - [ ] Créer une clé Gemini (aistudio.google.com → « Get API key ») et la coller dans Réglages → IA (Gemini), sur chaque appareil
-- [ ] Pouvoir retirer la photo gardée d'une fiche (aujourd'hui : seulement en supprimant la fiche)
 
 ## Fait
 
@@ -56,4 +55,4 @@ on coche la case `[x]`, on la déplace dans « Fait » et on fait un commit Git.
 - [x] v1.17 — Fiche recette / cocktail : la photo n'est plus rognée. Elle est affichée en entier et centrée (object-fit: contain) ; derrière, la même photo remplit le cadre, floutée (20 px), un peu assombrie et agrandie (×1,1) pour combler les bandes vides. Cadre inchangé (4:3, coins de 28 px). Vignettes de la liste inchangées (autre composant)
 - [x] v1.18 — Section « Supprimés » retirée des Réglages, et corbeille supprimée : supprimer un élément ou une fiche est maintenant définitif (rien n'est gardé). L'historique déjà enregistré est effacé de l'appareil au démarrage. Sauvegarde au format 10 sans historique ; les anciens fichiers (versions 1 à 9) restent importables, leur historique est ignoré. Résumés d'export / import : « N à faire, M terminés »
 - [x] v1.19 — Photos des fiches dans IndexedDB (nouveau fichier `photos.js`) au lieu de la mémoire simple limitée à ~5 Mo : rangées comme de vraies images (Blob), la fiche ne garde que l'identifiant (photoId). Les photos gardées avant cette version sont déplacées automatiquement au démarrage (rien n'est effacé avant d'être bien rangé). L'app demande au navigateur de conserver ses données (navigator.storage.persist). Supprimer une fiche efface sa photo. Sauvegarde au format 11 : les photos sont dans le fichier (« photos »), préparées dès l'ouverture de Sauvegarde ; les anciens fichiers (photo en texte) s'importent et sont rangés ; après un import, les photos qui ne servent plus sont effacées
-- [ ] v1.20 — Photo « vignette » séparée (non envoyée à l'IA) dans « Photos et texte », « Changer la photo » et « Retirer la photo » dans la fiche, en 1200 px / JPEG 80 %
+- [x] v1.20 — Photo de la fiche séparée : dans « Photos et texte », bloc « Photo de la fiche (facultatif) » avec une seule photo, jamais envoyée à l'IA, qui devient l'image de la fiche (la case « Garder une photo » est alors remplacée par un rappel) ; sans elle, comportement inchangé. Fiche : « Changer la photo » (ou « Ajouter une photo ») depuis la photothèque ou l'appareil photo, sans IA, et « Retirer la photo » (avec confirmation) ; l'ancienne photo est effacée, les photos venues d'un site restent derrière. Photos de fiche réduites sur l'appareil : 1200 px, JPEG 80 %
