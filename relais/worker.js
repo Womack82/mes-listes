@@ -241,7 +241,7 @@ const ADRESSE_JETON_TWITCH = "https://id.twitch.tv/oauth2/token";
 const ADRESSE_IGDB = "https://api.igdb.com/v4/games";
 const ADRESSE_JAQUETTES = "https://images.igdb.com/igdb/image/upload/t_cover_big/";
 const LONGUEUR_RECHERCHE_MAX = 100;
-const RESULTATS_MAX = 10;
+const RESULTATS_MAX = 20;
 
 // Jeton Twitch gardé en mémoire tant que ce Worker tourne :
 // { valeur, expire (millisecondes) }. Cloudflare redémarre parfois le
@@ -347,7 +347,13 @@ async function routeIgdb(chemin, parametres, env, enTetesCors) {
     const titre = (parametres.get("q") || "").replace(/["\\\x00-\x1f]/g, " ").replace(/\s+/g, " ").trim()
       .slice(0, LONGUEUR_RECHERCHE_MAX);
     if (titre === "") return reponseErreur(400, "Titre manquant.", enTetesCors);
-    requeteIgdb = `search "${titre}"; fields ${CHAMPS_JEU}; where version_parent = null; limit ${RESULTATS_MAX};`;
+    // Un mot du nom commence par le texte tapé : « wit » trouve
+    // « The Witcher » (début d'un mot) mais pas « Switch » (milieu d'un mot).
+    // « ~ » ignore les majuscules. On prend les jeux les plus notés
+    // (les plus connus) ; ils sont rangés par date plus bas.
+    requeteIgdb = `fields ${CHAMPS_JEU}; ` +
+      `where version_parent = null & (name ~ "${titre}"* | name ~ *" ${titre}"*); ` +
+      `sort total_rating_count desc; limit ${RESULTATS_MAX};`;
   } else if (chemin === "/igdb/jeu") {
     const id = Number(parametres.get("id"));
     if (!Number.isInteger(id) || id <= 0 || id > 1e10) return reponseErreur(400, "Identifiant invalide.", enTetesCors);
@@ -364,6 +370,9 @@ async function routeIgdb(chemin, parametres, env, enTetesCors) {
     // Délai dépassé, IGDB ou Twitch injoignable, jeton refusé… (aucun détail)
     return reponseErreur(502, "IGDB ne répond pas pour le moment.", enTetesCors);
   }
+  // Recherche : les plus récents d'abord, les jeux sans date à la fin
+  const dateSortie = (j) => (Number(j.first_release_date) > 0 ? Number(j.first_release_date) : 0);
+  if (!detail) jeux.sort((a, b) => dateSortie(b) - dateSortie(a));
   const corps = detail
     ? (jeux[0] ? convertirJeu(jeux[0], true) : null)
     : jeux.map((j) => convertirJeu(j)).filter((j) => j.id !== null && j.nom);
