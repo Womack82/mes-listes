@@ -514,7 +514,8 @@ h1, h2 { color: var(--texte); }
 .panneau {
   width: 100%;
   max-width: 600px;
-  max-height: 85vh;
+  /* --visible-ecran : hauteur visible, clavier de l'iPhone compris (app.js) */
+  max-height: min(85vh, calc(var(--visible-ecran, 100vh) - 8px));
   padding: 0;
   border: var(--verre-bord);
   background: rgba(255, 255, 255, 0.82);
@@ -532,7 +533,9 @@ h1, h2 { color: var(--texte); }
 .panneau-haut .panneau-contenu { padding-top: calc(env(safe-area-inset-top) + 12px); }
 
 /* Panneau d'actions : collé en bas, coins du haut arrondis */
-.panneau-bas { margin: auto auto 0; border-radius: 30px 30px 0 0; }
+/* --clavier-ecran : hauteur du clavier de l'iPhone (app.js) ; le panneau
+   reste posé juste au-dessus quand on modifie une fiche */
+.panneau-bas { margin: auto auto var(--clavier-ecran, 0px); border-radius: 30px 30px 0 0; }
 .panneau-bas .panneau-contenu { padding-bottom: calc(env(safe-area-inset-bottom) + 16px); }
 
 /* Animations d'ouverture : descend du haut / monte du bas avec un léger
@@ -1021,6 +1024,19 @@ form.edition textarea {
 /* « Importer depuis le lien » : contour bleu, sur toute la largeur */
 .bouton-importer-lien { margin-top: 0; }
 .bouton-importer-lien:disabled { opacity: 0.6; cursor: progress; }
+/* Étape suivante conseillée (après « Coller le lien copié » ou un import
+   impossible) : le bouton passe en orange, texte marine */
+.bouton-contour.mise-en-avant {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--texte);
+  font-weight: 700;
+}
+.bouton-contour.mise-en-avant .icone-svg { color: var(--texte); }
+@media (hover: hover) {
+  .bouton-contour.mise-en-avant:hover { background: var(--accent-survol); border-color: var(--accent-survol); filter: none; }
+}
+.bouton-contour.mise-en-avant:active { background: var(--accent-survol); border-color: var(--accent-survol); }
 #message-import { margin: 0; }
 
 /* Sur la carte : icône lien de 44 px (zone d'appui), entre le texte et la case */

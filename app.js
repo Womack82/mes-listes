@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.13";
+const VERSION = "v1.14";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -817,6 +817,8 @@ const messageColler = document.getElementById("message-coller");
 // Recette, cocktail : « Importer depuis le lien »
 const boutonImporterLien = document.getElementById("bouton-importer-lien");
 const messageImport = document.getElementById("message-import");
+// Recette, cocktail : « Photos et texte (IA) »
+const boutonOuvrirIa = document.getElementById("bouton-ouvrir-ia");
 
 // Catégorie choisie dans le menu (film, serie, jeu, recette)
 let categorieAjout = "film";
@@ -869,6 +871,11 @@ function ajusterAuClavier() {
   const clavier = Math.max(0, window.innerHeight - vue.height - vue.offsetTop);
   feuilleAjout.style.setProperty("--clavier", `${clavier}px`);
   feuilleAjout.style.setProperty("--visible", `${vue.height}px`);
+  // Même mesure pour les panneaux (Modifier une fiche, Réglages) : ils
+  // restent au-dessus du clavier et jamais plus hauts que la partie visible
+  const racine = document.documentElement.style;
+  racine.setProperty("--clavier-ecran", `${clavier}px`);
+  racine.setProperty("--visible-ecran", `${vue.height}px`);
   // Un site ne peut pas demander si le clavier est ouvert : on le devine
   // quand plus de 100 px du bas de l'écran sont cachés
   feuilleAjout.classList.toggle("clavier-ouvert", clavier > 100);
@@ -918,6 +925,8 @@ function ouvrirAjout(type) {
   champLien.value = "";
   champNote.value = "";
   messageColler.hidden = true;
+  texteCopie = "";
+  mettreEnAvant(null);
   reinitialiserImport();
   masquerRecherche();
   // Jeu sans clé RAWG : saisie manuelle tout de suite
@@ -982,6 +991,7 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", ajusterAuClavier);
   window.visualViewport.addEventListener("scroll", ajusterAuClavier);
 }
+ajusterAuClavier(); // premières mesures (panneaux)
 
 // Saisie manuelle (« Ajouter » ou « Ajouter « titre » tel quel ») :
 // le titre tel qu'il est écrit, sans infos TMDB / RAWG
@@ -1033,11 +1043,28 @@ function proposerTitre(lien) {
   champTitre.select();
 }
 
-// « Coller le lien » : lit le presse-papiers (seulement sur ce geste ;
+// Texte long trouvé par « Coller le lien copié » (légende, texte copié) :
+// transmis au champ texte de « Photos et texte (IA) » si on touche ce bouton
+let texteCopie = "";
+// Au-delà de 40 caractères (hors simple lien), c'est un texte à analyser
+const LONGUEUR_TEXTE_LONG = 40;
+
+// Met un bouton en avant (orange) pour montrer l'étape suivante conseillée
+function mettreEnAvant(bouton) {
+  for (const b of [boutonImporterLien, boutonOuvrirIa]) b.classList.toggle("mise-en-avant", b === bouton);
+}
+
+// « Coller le lien copié » : lit le presse-papiers (seulement sur ce geste ;
 // l'iPhone affiche alors sa bulle « Coller » à toucher pour autoriser).
-// Le premier lien http(s) trouvé dans le texte remplit le champ Lien.
+// Pensé pour le Raccourci iPhone qui copie le lien partagé.
+// - un lien : il remplit le champ Lien, « Importer » est mis en avant
+//   (l'import ne part que quand on le touche) ;
+// - un texte long : proposé pour « Photos et texte (IA) » ;
+// - le premier lien http(s) d'un texte remplit aussi le champ Lien.
 document.getElementById("bouton-coller").addEventListener("click", async () => {
   messageColler.hidden = true;
+  texteCopie = "";
+  mettreEnAvant(null);
   let texte;
   try {
     texte = await navigator.clipboard.readText();
@@ -1046,14 +1073,31 @@ document.getElementById("bouton-coller").addEventListener("click", async () => {
     montrerMessageColler("Impossible de lire le presse-papiers, collez le lien à la main.");
     return;
   }
-  const trouve = (texte || "").match(/https?:\/\/\S+/i);
+  texte = (texte || "").trim();
+  const trouve = texte.match(/https?:\/\/\S+/i);
   const lien = trouve ? lienValide(trouve[0]) : null;
-  if (!lien) {
+  const texteLong = texte.length > LONGUEUR_TEXTE_LONG && !(lien && texte === trouve[0]);
+  if (lien) {
+    champLien.value = lien;
+    // Le lien a changé : ce qui avait été importé ne correspond plus
+    if (recetteImportee && recetteImportee.lien !== lien) {
+      recetteImportee = null;
+      messageImport.hidden = true;
+    }
+  }
+  if (texteLong) {
+    texteCopie = texte.slice(0, LIMITES_IA.texte);
+    mettreEnAvant(boutonOuvrirIa);
+    montrerMessageColler(`${lien ? "Lien collé. " : ""}Le presse-papiers contient un texte (${texte.length} caractères) : ` +
+      "touchez « Photos et texte (IA) » pour que l'IA s'en serve.");
+  } else if (lien) {
+    mettreEnAvant(boutonImporterLien);
+    montrerMessageColler("Lien collé. Touchez « Importer depuis le lien » pour remplir la fiche.");
+  } else {
     montrerMessageColler("Le presse-papiers ne contient pas de lien (http ou https). Collez le lien à la main.");
     return;
   }
-  champLien.value = lien;
-  proposerTitre(lien);
+  if (lien) proposerTitre(lien);
 });
 
 // Lien collé ou tapé à la main : même proposition de titre.
@@ -1102,9 +1146,18 @@ function reinitialiserImport() {
   boutonImporterLien.textContent = TEXTE_BOUTON_IMPORT;
 }
 
+// Import impossible : on montre le message, et « Photos et texte (IA) »
+// passe en orange (l'IA peut lire des captures ou la légende copiée)
+const SUITE_ECHEC_IMPORT = " Essayez aussi « Photos et texte (IA) » avec des captures ou le texte de la recette.";
+function echecImport(texte) {
+  afficherMessage(texte + SUITE_ECHEC_IMPORT, false, messageImport);
+  mettreEnAvant(boutonOuvrirIa);
+}
+
 async function importerDepuisLien() {
   messageImport.hidden = true;
   messageColler.hidden = true;
+  mettreEnAvant(null);
   const lien = lienValide(champLien.value);
   if (!lien) {
     afficherMessage("Collez d'abord le lien de la page (il doit commencer par http:// ou https://).", false, messageImport);
@@ -1113,7 +1166,7 @@ async function importerDepuisLien() {
   }
   const relais = lireCle(CLE_RELAIS);
   if (relais === "") {
-    afficherMessage("Import impossible : ajoutez l'adresse du relais dans Réglages → Import de recettes. Vous pouvez ajouter la recette à la main.", false, messageImport);
+    echecImport("Import impossible : ajoutez l'adresse du relais dans Réglages → Import de recettes. Vous pouvez ajouter la recette à la main.");
     return;
   }
 
@@ -1142,7 +1195,7 @@ async function importerDepuisLien() {
   boutonImporterLien.disabled = false;
   boutonImporterLien.textContent = TEXTE_BOUTON_IMPORT;
   if (!recette) {
-    afficherMessage(MESSAGE_PAS_DE_RECETTE, false, messageImport);
+    echecImport(MESSAGE_PAS_DE_RECETTE);
     return;
   }
 
@@ -1520,12 +1573,15 @@ function viderIa() {
   majAnalyserIa();
 }
 
-// depart : { titre, lien, note } tapés dans le calque d'ajout
+// depart : { titre, lien, note } tapés dans le calque d'ajout, et texte
+// copié (presse-papiers) à mettre dans le champ texte
 function ouvrirIa(type, depart = {}) {
   viderIa();
   iaType = type;
   iaTitre.textContent = TITRES_IA[type];
   iaLien.value = depart.lien || "";
+  iaTexte.value = (depart.texte || "").slice(0, LIMITES_IA.texte);
+  majAnalyserIa();
   iaDepart = { titre: depart.titre || "", note: depart.note || "" };
   montrerVueIa("saisie");
   verrouillerPage();
@@ -1550,13 +1606,18 @@ pageIa.addEventListener("close", () => {
   deverrouillerPage();
 });
 
-// Depuis le calque d'ajout d'une recette ou d'un cocktail
-document.getElementById("bouton-ouvrir-ia").addEventListener("click", () => {
+// Depuis le calque d'ajout d'une recette ou d'un cocktail : le titre, le
+// lien, la note et le texte copié (« Coller le lien copié ») suivent.
+// Un titre qui n'est que le nom du site (« instagram.com ») ne suit pas.
+boutonOuvrirIa.addEventListener("click", () => {
   const type = categorieChoisie();
+  const lien = lienValide(champLien.value) || "";
+  const titre = champTitre.value.trim();
   const depart = {
-    titre: champTitre.value.trim(),
-    lien: lienValide(champLien.value) || "",
+    titre: lien && titre === domaine(lien) ? "" : titre,
+    lien,
     note: champNote.value.trim().slice(0, LONGUEUR_MAX_NOTE),
+    texte: texteCopie,
   };
   fermerAjout();
   ouvrirIa(type, depart);
