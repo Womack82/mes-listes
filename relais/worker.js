@@ -1,17 +1,25 @@
 // ============================================================
-// relais/worker.js : petit relais pour l'import de recettes
+// relais/worker.js : petit relais de l'app Wodo
 // (à copier-coller dans un « Worker » Cloudflare, offre gratuite)
 //
-// Pourquoi un relais ? Le navigateur interdit à l'app de lire
-// directement une page d'un autre site (règle « CORS »). Le relais
-// va chercher la page à sa place et lui renvoie le HTML en texte.
+// Deux services :
+// 1. Import de recettes : GET /?url=… renvoie le HTML d'une page.
+//    Le navigateur interdit à l'app de lire directement une page d'un
+//    autre site (règle « CORS ») : le relais la lit à sa place.
+// 2. Jeux vidéo (IGDB, base de jeux de Twitch) :
+//    GET /igdb/recherche?q=titre → liste de jeux
+//    GET /igdb/jeu?id=123        → détail d'un jeu
+//    Les identifiants IGDB restent secrets dans Cloudflare (variables
+//    IGDB_CLIENT_ID et IGDB_CLIENT_SECRET) : l'app ne les voit jamais.
 //
 // Ce que fait le relais :
-// - il n'accepte que GET ?url=… venant de l'app (en-tête Origin) ;
-// - il refuse tout ce qui n'est pas http(s), et les adresses locales
-//   ou privées (localhost, 127.x, 10.x, 192.168.x, 169.254.x…) ;
-// - il suit lui-même les redirections et revérifie chaque adresse ;
-// - il abandonne au bout de 8 secondes et ne lit que les 2 premiers Mo ;
+// - il ne répond qu'à l'app (en-tête Origin) et seulement en GET ;
+// - import : il refuse tout ce qui n'est pas http(s), et les adresses
+//   locales ou privées (localhost, 127.x, 10.x, 192.168.x, 169.254.x…),
+//   suit lui-même les redirections et revérifie chaque adresse ;
+// - il abandonne au bout de 8 secondes ; import : 2 premiers Mo au plus ;
+// - IGDB : il demande un jeton à Twitch, le garde en mémoire jusqu'à son
+//   expiration et en redemande un tout seul ;
 // - il ne stocke rien et n'écrit aucun journal (pas de console.log).
 // ============================================================
 
@@ -27,7 +35,8 @@ const REDIRECTIONS_MAX = 5;
 const LONGUEUR_URL_MAX = 2048;
 
 export default {
-  async fetch(requete) {
+  // env : les variables et secrets du Worker (IGDB_CLIENT_ID, IGDB_CLIENT_SECRET)
+  async fetch(requete, env) {
     // 1. Seule l'app a le droit d'utiliser le relais
     const origine = requete.headers.get("Origin");
     if (!ORIGINES_AUTORISEES.includes(origine)) {
@@ -53,7 +62,13 @@ export default {
       return reponseErreur(405, "Seul GET est accepté.", enTetesCors);
     }
 
-    // 2. L'adresse demandée doit être sûre
+    // Jeux vidéo (IGDB)
+    const chemin = new URL(requete.url).pathname.replace(/\/+$/, "");
+    if (chemin.startsWith("/igdb")) {
+      return routeIgdb(chemin, new URL(requete.url).searchParams, env || {}, enTetesCors);
+    }
+
+    // 2. Import de recettes : l'adresse demandée doit être sûre
     const texteUrl = new URL(requete.url).searchParams.get("url") || "";
     if (texteUrl.length > LONGUEUR_URL_MAX) {
       return reponseErreur(400, "Adresse trop longue.", enTetesCors);
@@ -216,4 +231,150 @@ function latin1(octets) {
     texte += String.fromCharCode.apply(null, octets.subarray(i, i + 8192));
   }
   return texte;
+}
+
+// ============================================================
+// Jeux vidéo : IGDB (api.igdb.com/v4), avec un jeton Twitch
+// ============================================================
+
+const ADRESSE_JETON_TWITCH = "https://id.twitch.tv/oauth2/token";
+const ADRESSE_IGDB = "https://api.igdb.com/v4/games";
+const ADRESSE_JAQUETTES = "https://images.igdb.com/igdb/image/upload/t_cover_big/";
+const LONGUEUR_RECHERCHE_MAX = 100;
+const RESULTATS_MAX = 10;
+
+// Jeton Twitch gardé en mémoire tant que ce Worker tourne :
+// { valeur, expire (millisecondes) }. Cloudflare redémarre parfois le
+// Worker : on redemande alors simplement un jeton.
+let jetonEnCache = null;
+let jetonEnCours = null; // demande en cours (évite d'en lancer plusieurs)
+
+async function jetonTwitch(env) {
+  // Encore valable au moins 5 minutes : on le réutilise
+  if (jetonEnCache && jetonEnCache.expire - Date.now() > 5 * 60 * 1000) return jetonEnCache.valeur;
+  if (!jetonEnCours) {
+    jetonEnCours = (async () => {
+      const adresse = new URL(ADRESSE_JETON_TWITCH);
+      adresse.searchParams.set("client_id", env.IGDB_CLIENT_ID);
+      adresse.searchParams.set("client_secret", env.IGDB_CLIENT_SECRET);
+      adresse.searchParams.set("grant_type", "client_credentials");
+      const reponse = await avecDelai((signal) => fetch(adresse.href, { method: "POST", signal }));
+      if (!reponse.ok) throw new Error("jeton refusé");
+      const donnees = await reponse.json();
+      if (typeof donnees.access_token !== "string" || !donnees.access_token) throw new Error("jeton absent");
+      const duree = Number(donnees.expires_in) > 0 ? Number(donnees.expires_in) : 3600; // en secondes
+      jetonEnCache = { valeur: donnees.access_token, expire: Date.now() + duree * 1000 };
+      return jetonEnCache.valeur;
+    })().finally(() => { jetonEnCours = null; });
+  }
+  return jetonEnCours;
+}
+
+// Une requête IGDB (langage « Apicalypse »). Si le jeton n'est plus
+// accepté (401), on en redemande un et on réessaie une fois.
+async function demanderIgdb(env, requeteIgdb) {
+  for (let essai = 0; essai < 2; essai++) {
+    const jeton = await jetonTwitch(env);
+    const reponse = await avecDelai((signal) => fetch(ADRESSE_IGDB, {
+      method: "POST",
+      signal,
+      headers: {
+        "Client-ID": env.IGDB_CLIENT_ID,
+        "Authorization": `Bearer ${jeton}`,
+        "Accept": "application/json",
+        "Content-Type": "text/plain",
+      },
+      body: requeteIgdb,
+    }));
+    if (reponse.status === 401 && essai === 0) {
+      jetonEnCache = null; // jeton expiré ou révoqué
+      continue;
+    }
+    if (!reponse.ok) throw new Error(`IGDB a répondu ${reponse.status}`);
+    const donnees = await reponse.json();
+    return Array.isArray(donnees) ? donnees : [];
+  }
+  throw new Error("jeton refusé");
+}
+
+// Abandon au bout de 8 secondes
+async function avecDelai(appel) {
+  const controle = new AbortController();
+  const minuteur = setTimeout(() => controle.abort(), DELAI_MAX_MS);
+  try {
+    return await appel(controle.signal);
+  } finally {
+    clearTimeout(minuteur);
+  }
+}
+
+// Un jeu IGDB → le format renvoyé à l'app (seulement des textes et nombres)
+function convertirJeu(jeu, detail = false) {
+  const texte = (v, max = 200) => (typeof v === "string" ? v.slice(0, max) : "");
+  const noms = (liste) => (Array.isArray(liste) ? liste.map((x) => texte(x && x.name, 80)).filter(Boolean).slice(0, 12) : []);
+  const date = Number(jeu.first_release_date);
+  const imageId = jeu.cover && typeof jeu.cover.image_id === "string" && /^[a-z0-9]+$/i.test(jeu.cover.image_id)
+    ? jeu.cover.image_id : null;
+  const resultat = {
+    id: Number.isInteger(jeu.id) ? jeu.id : null,
+    nom: texte(jeu.name),
+    annee: Number.isFinite(date) && date > 0 ? new Date(date * 1000).getUTCFullYear() : null,
+    plateformes: noms(jeu.platforms),
+    genres: noms(jeu.genres),
+    jaquette: imageId ? `${ADRESSE_JAQUETTES}${imageId}.jpg` : null,
+  };
+  if (detail) {
+    resultat.resume = texte(jeu.summary, 3000);
+    resultat.developpeurs = Array.isArray(jeu.involved_companies)
+      ? jeu.involved_companies.filter((c) => c && c.developer).map((c) => texte(c.company && c.company.name, 80)).filter(Boolean).slice(0, 5)
+      : [];
+    resultat.lien = typeof jeu.url === "string" && jeu.url.startsWith("https://www.igdb.com/") ? jeu.url : null;
+  }
+  return resultat;
+}
+
+const CHAMPS_JEU = "name,first_release_date,platforms.name,genres.name,cover.image_id";
+
+async function routeIgdb(chemin, parametres, env, enTetesCors) {
+  if (!env.IGDB_CLIENT_ID || !env.IGDB_CLIENT_SECRET) {
+    return reponseErreur(503, "Relais non configuré pour les jeux (secrets IGDB manquants).", enTetesCors);
+  }
+  let requeteIgdb;
+  let detail = false;
+  if (chemin === "/igdb/recherche") {
+    // Titre nettoyé : sans guillemets ni barres obliques inverses (qui
+    // casseraient la requête IGDB), sans caractères de contrôle
+    const titre = (parametres.get("q") || "").replace(/["\\\x00-\x1f]/g, " ").replace(/\s+/g, " ").trim()
+      .slice(0, LONGUEUR_RECHERCHE_MAX);
+    if (titre === "") return reponseErreur(400, "Titre manquant.", enTetesCors);
+    requeteIgdb = `search "${titre}"; fields ${CHAMPS_JEU}; where version_parent = null; limit ${RESULTATS_MAX};`;
+  } else if (chemin === "/igdb/jeu") {
+    const id = Number(parametres.get("id"));
+    if (!Number.isInteger(id) || id <= 0 || id > 1e10) return reponseErreur(400, "Identifiant invalide.", enTetesCors);
+    requeteIgdb = `fields ${CHAMPS_JEU},summary,url,involved_companies.developer,involved_companies.company.name; where id = ${id}; limit 1;`;
+    detail = true;
+  } else {
+    return reponseErreur(404, "Route inconnue.", enTetesCors);
+  }
+
+  let jeux;
+  try {
+    jeux = await demanderIgdb(env, requeteIgdb);
+  } catch {
+    // Délai dépassé, IGDB ou Twitch injoignable, jeton refusé… (aucun détail)
+    return reponseErreur(502, "IGDB ne répond pas pour le moment.", enTetesCors);
+  }
+  const corps = detail
+    ? (jeux[0] ? convertirJeu(jeux[0], true) : null)
+    : jeux.map((j) => convertirJeu(j)).filter((j) => j.id !== null && j.nom);
+  if (detail && !corps) return reponseErreur(404, "Jeu introuvable.", enTetesCors);
+  return new Response(JSON.stringify(corps), {
+    status: 200,
+    headers: {
+      ...enTetesCors,
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }

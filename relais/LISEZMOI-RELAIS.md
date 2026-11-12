@@ -1,13 +1,23 @@
-# Déployer le relais d'import de recettes (Cloudflare, gratuit)
+# Déployer le relais de Wodo (Cloudflare, gratuit)
 
-Le relais est un petit programme qui tourne chez Cloudflare. Quand tu
-appuies sur « Importer » dans l'app, il va chercher la page de la recette
-et la renvoie à l'app. Le navigateur interdit à l'app de le faire seule.
+Le relais est un petit programme qui tourne chez Cloudflare. Il rend deux
+services à l'app :
 
-- **Coût** : gratuit (offre « Free » : 100 000 appels par jour, largement assez).
-- **Durée** : 10 minutes environ, sans rien installer, sans ligne de commande.
-- **Ce que le relais garde** : rien. Il ne stocke aucune page et n'écrit
-  aucun journal des adresses demandées.
+- **Import de recettes** : quand tu appuies sur « Importer depuis le lien »,
+  il va chercher la page de la recette (le navigateur interdit à l'app de
+  le faire seule).
+- **Recherche de jeux vidéo** : il interroge **IGDB**, la base de jeux de
+  Twitch. Les identifiants IGDB restent **secrets chez Cloudflare** : l'app
+  ne les voit jamais.
+
+- **Coût** : gratuit (offre « Free » de Cloudflare : 100 000 appels par jour ;
+  IGDB est gratuit pour un usage personnel).
+- **Durée** : 20 minutes environ, sans rien installer, sans ligne de commande.
+- **Ce que le relais garde** : rien. Il ne stocke aucune page ni aucune
+  recherche et n'écrit aucun journal.
+
+> **Déjà un relais en place ?** Va directement à
+> [« Mettre à jour un relais déjà installé »](#mettre-à-jour-un-relais-déjà-installé).
 
 ---
 
@@ -53,7 +63,61 @@ et la renvoie à l'app. Le navigateur interdit à l'app de le faire seule.
    (Le code du relais n'écrit rien, mais cette option de Cloudflare
    enregistrerait les adresses des requêtes.)
 
-## Étape 5 — Copier l'adresse du relais
+## Étape 5 — Créer l'accès IGDB chez Twitch (pour les jeux)
+
+IGDB appartient à Twitch : il faut une « application » Twitch (gratuite).
+Elle donne deux codes : un **Client ID** et un **Client Secret**.
+
+1. Si tu n'as pas de compte Twitch, crée-en un sur <https://www.twitch.tv/>
+   (bouton **S'inscrire**).
+2. **Active la double authentification**, obligatoire pour créer une
+   application : sur twitch.tv, clique sur ton avatar (en haut à droite) →
+   **Paramètres** → onglet **Sécurité et confidentialité** →
+   **Activer l'authentification à deux facteurs**, et suis les étapes
+   (code par SMS ou appli d'authentification).
+3. Va sur <https://dev.twitch.tv/console> et connecte-toi avec ton compte
+   Twitch. Accepte les conditions si on te le demande.
+4. Clique sur **Applications** → **Enregistrer votre application**
+   (« Register Your Application »).
+5. Remplis :
+   - **Nom** : `Wodo jeux` (le nom doit être unique sur Twitch : ajoute
+     ton pseudo si celui-ci est déjà pris) ;
+   - **URL de redirection OAuth** : `http://localhost` (obligatoire mais
+     inutilisée ici), puis clique sur **Ajouter** ;
+   - **Catégorie** : **Application Integration** ;
+   - **Type de client** : **Confidentiel**.
+6. Coche la case anti-robot, puis **Créer**.
+7. Dans la liste, clique sur **Gérer** à côté de ton application.
+   - Copie le **Client ID** (identifiant client) dans une note temporaire.
+   - Clique sur **Nouveau secret**, confirme, et copie le **Client Secret**
+     tout de suite (Twitch ne le réaffichera plus).
+
+> Ces deux codes donnent accès à IGDB en ton nom : ne les envoie à personne,
+> ne les mets jamais dans un fichier du projet. Une fois collés dans
+> Cloudflare (étape 6), efface ta note.
+
+## Étape 6 — Donner les codes Twitch au relais (secrets Cloudflare)
+
+1. Sur la page du Worker, ouvre l'onglet **Settings** (« Paramètres »).
+2. Cherche la rubrique **Variables and Secrets** (« Variables et secrets »)
+   et clique sur **Add** (« Ajouter »).
+3. Premier secret :
+   - **Type** : **Secret** (important : pas « Text ») ;
+   - **Variable name** (nom) : `IGDB_CLIENT_ID` (exactement ainsi, en
+     majuscules) ;
+   - **Value** (valeur) : colle le **Client ID**.
+4. Clique encore sur **Add** pour le second secret :
+   - **Type** : **Secret** ;
+   - **Variable name** : `IGDB_CLIENT_SECRET` ;
+   - **Value** : colle le **Client Secret**.
+5. Clique sur **Deploy** (ou « Save and deploy » / « Enregistrer et
+   déployer ») pour que le relais prenne les secrets en compte.
+
+Le relais demande lui-même un « jeton » à Twitch avec ces codes, le garde
+en mémoire jusqu'à son expiration (environ 60 jours) et en redemande un
+tout seul. Tu n'as rien d'autre à faire.
+
+## Étape 7 — Copier l'adresse du relais
 
 1. Sur la page du Worker, repère l'adresse qui finit par `.workers.dev`
    (rubrique **Domains & Routes** ou en haut de la page). Elle ressemble à :
@@ -63,10 +127,10 @@ et la renvoie à l'app. Le navigateur interdit à l'app de le faire seule.
 > Si tu ouvres cette adresse dans ton navigateur, tu verras
 > « Origine refusée. » : c'est **normal**, le relais ne répond qu'à l'app.
 
-## Étape 6 — La coller dans l'app
+## Étape 8 — La coller dans l'app
 
 1. Dans l'app, ouvre **Réglages** (roue en haut à droite).
-2. Touche **Import de recettes**.
+2. Touche **Relais (recettes et jeux)**.
 3. Colle l'adresse dans le champ **Adresse du relais**, puis touche
    **Enregistrer**.
 4. À faire une fois par appareil (PC, Safari, app de l'écran d'accueil) :
@@ -75,18 +139,24 @@ et la renvoie à l'app. Le navigateur interdit à l'app de le faire seule.
 
 ---
 
-## Mettre à jour le relais plus tard
+## Mettre à jour un relais déjà installé
 
-Si `relais/worker.js` change : refais l'**étape 3** (tout sélectionner,
-coller le nouveau code, **Deploy**). L'adresse ne change pas.
+Quand `relais/worker.js` change (par exemple pour ajouter les jeux) :
+
+1. Refais l'**étape 3** : tout sélectionner dans l'éditeur Cloudflare,
+   coller le nouveau code, **Deploy**. L'adresse ne change pas.
+2. Pour les jeux, si ce n'est pas déjà fait : **étapes 5 et 6** (codes
+   Twitch et secrets).
 
 ## Si ça ne marche pas
 
 | Ce que tu vois dans l'app | Cause probable |
 |---|---|
-| « Ajoutez l'adresse du relais dans Réglages… » | L'adresse n'est pas enregistrée sur cet appareil (étape 6). |
-| « Je n'ai pas trouvé de recette sur cette page » pour **toutes** les recettes | Adresse mal copiée, ou code pas déployé (refais les étapes 3 et 5). |
+| « Ajoutez l'adresse du relais dans Réglages… » | L'adresse n'est pas enregistrée sur cet appareil (étape 8). |
+| « Je n'ai pas trouvé de recette sur cette page » pour **toutes** les recettes | Adresse mal copiée, ou code pas déployé (refais les étapes 3 et 7). |
 | Ce message pour **un seul** site | Normal : le site ne décrit pas sa recette dans un format standard, ou il bloque les robots. Ajoute la recette à la main. |
+| « Recherche de jeux indisponible » pour **tous** les jeux | Secrets absents ou mal nommés (étape 6 : `IGDB_CLIENT_ID` et `IGDB_CLIENT_SECRET`, type Secret), Client Secret régénéré chez Twitch sans être recollé, ou ancien code du relais (étape 3). |
+| « Recherche de jeux indisponible » de temps en temps | IGDB ou Twitch momentanément lent : réessaie plus tard, ou ajoute le jeu à la main. |
 
 ## Tester sur le PC avant de publier
 
