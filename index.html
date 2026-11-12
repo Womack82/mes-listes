@@ -654,19 +654,14 @@
         <button type="button" id="ajout-direct" class="bouton-ajout-ligne" hidden>Ajouter</button>
       </div>
 
-      <!-- Recette et cocktail seulement : lien (facultatif, avec bouton pour coller) et note -->
+      <!-- Recette et cocktail seulement : lien (facultatif) et note -->
       <div id="zone-recette" class="zone-recette" hidden>
         <div class="ligne-lien">
           <input id="champ-lien" type="url" inputmode="url" aria-label="Lien de la recette (facultatif)"
                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                  enterkeyhint="done" placeholder="Lien (facultatif)">
-          <button type="button" id="bouton-coller" class="bouton-coller">
-            <!-- Presse-papiers -->
-            <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M9 4h6v3H9z M9 5.5H7a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7.5a2 2 0 0 0-2-2h-2"/></svg>
-            Coller le lien copié
-          </button>
         </div>
-        <!-- Ce que « Coller » a trouvé : lien collé (→ Importer) ou texte long (→ IA) -->
+        <!-- Message sous le lien (par exemple : lien non valide) -->
         <p id="message-coller" class="aide message-coller" role="status" hidden></p>
         <!-- Importer : lit la recette de la page (via le relais) et remplit la fiche -->
         <button type="button" id="bouton-importer-lien" class="bouton-contour bouton-importer-lien">

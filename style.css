@@ -966,7 +966,7 @@ html.verrou body { overflow: hidden; }
 .boutons-fenetre .danger { background: var(--rouge); border-color: var(--rouge); color: white; }
 
 /* ---------- Recettes : lien et note ---------- */
-/* Dans le calque d'ajout : ligne « Lien » + bouton « Coller le lien », puis la note */
+/* Dans le calque d'ajout : ligne « Lien », puis la note */
 .zone-recette { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; flex-shrink: 0; }
 .ligne-lien { display: flex; gap: 8px; }
 #champ-lien,
@@ -989,30 +989,11 @@ form.edition textarea {
 }
 #champ-lien::placeholder,
 #champ-note::placeholder { color: var(--gris); }
-/* « Coller le lien » : bleu pâle, icône presse-papiers */
-.bouton-coller {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  height: 48px;
-  padding: 0 14px;
-  border: none;
-  border-radius: 24px;
-  background: var(--bleu-pale);
-  color: var(--texte);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.bouton-coller .icone-svg { width: 20px; height: 20px; color: var(--bleu); }
 .message-coller { margin: 0 4px; font-size: 13px; }
 /* « Importer depuis le lien » : contour bleu, sur toute la largeur */
 .bouton-importer-lien { margin-top: 0; }
 .bouton-importer-lien:disabled { opacity: 0.6; cursor: progress; }
-/* Étape suivante conseillée (après « Coller le lien copié » ou un import
-   impossible) : le bouton passe en orange, texte marine */
+/* Étape suivante conseillée (après un import impossible) : le bouton passe en orange, texte marine */
 .bouton-contour.mise-en-avant {
   background: var(--accent);
   border-color: var(--accent);

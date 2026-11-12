@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.23";
+const VERSION = "v1.24";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -782,7 +782,7 @@ const ajoutDirect = document.getElementById("ajout-direct");
 const zoneResultats = document.getElementById("zone-resultats");
 const ajoutTelQuel = document.getElementById("ajout-tel-quel");
 const mentionSource = document.getElementById("mention-source");
-// Recette : lien, bouton « Coller le lien », note
+// Recette : lien, note, et message sous le lien (lien non valide)
 const zoneRecette = document.getElementById("zone-recette");
 const champLien = document.getElementById("champ-lien");
 const champNote = document.getElementById("champ-note");
@@ -893,13 +893,11 @@ function ouvrirAjout(type) {
   champTitre.enterKeyHint = avecRecherche ? "search" : "done";
   mentionSource.textContent = MENTIONS[type] || "";
   rechercheJeuxIndisponible = false; // chaque ouverture retente la recherche de jeux
-  // Recette, cocktail : lien et note vides. Rien n'est lu dans le presse-papiers
-  // à l'ouverture : seulement quand on touche « Coller le lien ».
+  // Recette, cocktail : lien et note vides
   zoneRecette.hidden = !estFiche(type);
   champLien.value = "";
   champNote.value = "";
   messageColler.hidden = true;
-  texteCopie = "";
   mettreEnAvant(null);
   reinitialiserImport();
   masquerRecherche();
@@ -1002,7 +1000,7 @@ function ajouterTelQuel() {
   fermerAjout();
 }
 
-// --- Recette : coller un lien ---
+// --- Recette : message sous le lien ---
 function montrerMessageColler(texte) {
   messageColler.textContent = texte;
   messageColler.hidden = false;
@@ -1017,62 +1015,10 @@ function proposerTitre(lien) {
   champTitre.select();
 }
 
-// Texte long trouvé par « Coller le lien copié » (légende, texte copié) :
-// transmis au champ texte de « Photos et texte (IA) » si on touche ce bouton
-let texteCopie = "";
-// Au-delà de 40 caractères (hors simple lien), c'est un texte à analyser
-const LONGUEUR_TEXTE_LONG = 40;
-
 // Met un bouton en avant (orange) pour montrer l'étape suivante conseillée
 function mettreEnAvant(bouton) {
   for (const b of [boutonImporterLien, boutonOuvrirIa]) b.classList.toggle("mise-en-avant", b === bouton);
 }
-
-// « Coller le lien copié » : lit le presse-papiers (seulement sur ce geste ;
-// l'iPhone affiche alors sa bulle « Coller » à toucher pour autoriser).
-// Pensé pour le Raccourci iPhone qui copie le lien partagé.
-// - un lien : il remplit le champ Lien, « Importer » est mis en avant
-//   (l'import ne part que quand on le touche) ;
-// - un texte long : proposé pour « Photos et texte (IA) » ;
-// - le premier lien http(s) d'un texte remplit aussi le champ Lien.
-document.getElementById("bouton-coller").addEventListener("click", async () => {
-  messageColler.hidden = true;
-  texteCopie = "";
-  mettreEnAvant(null);
-  let texte;
-  try {
-    texte = await navigator.clipboard.readText();
-  } catch {
-    // Refusé, ou navigateur qui ne permet pas de lire le presse-papiers
-    montrerMessageColler("Impossible de lire le presse-papiers, collez le lien à la main.");
-    return;
-  }
-  texte = (texte || "").trim();
-  const trouve = texte.match(/https?:\/\/\S+/i);
-  const lien = trouve ? lienValide(trouve[0]) : null;
-  const texteLong = texte.length > LONGUEUR_TEXTE_LONG && !(lien && texte === trouve[0]);
-  if (lien) {
-    champLien.value = lien;
-    // Le lien a changé : ce qui avait été importé ne correspond plus
-    if (recetteImportee && recetteImportee.lien !== lien) {
-      recetteImportee = null;
-      messageImport.hidden = true;
-    }
-  }
-  if (texteLong) {
-    texteCopie = texte.slice(0, LIMITES_IA.texte);
-    mettreEnAvant(boutonOuvrirIa);
-    montrerMessageColler(`${lien ? "Lien collé. " : ""}Le presse-papiers contient un texte (${texte.length} caractères) : ` +
-      "touchez « Photos et texte (IA) » pour que l'IA s'en serve.");
-  } else if (lien) {
-    mettreEnAvant(boutonImporterLien);
-    montrerMessageColler("Lien collé. Touchez « Importer depuis le lien » pour remplir la fiche.");
-  } else {
-    montrerMessageColler("Le presse-papiers ne contient pas de lien (http ou https). Collez le lien à la main.");
-    return;
-  }
-  if (lien) proposerTitre(lien);
-});
 
 // Lien collé ou tapé à la main : même proposition de titre.
 // (Collé : tout de suite ; tapé : quand on quitte le champ, pour ne pas
@@ -1692,7 +1638,7 @@ pageIa.addEventListener("close", () => {
 });
 
 // Depuis le calque d'ajout d'une recette ou d'un cocktail : le titre, le
-// lien, la note et le texte copié (« Coller le lien copié ») suivent.
+// lien et la note suivent.
 // Un titre qui n'est que le nom du site (« instagram.com ») ne suit pas.
 boutonOuvrirIa.addEventListener("click", () => {
   const type = categorieChoisie();
@@ -1702,7 +1648,6 @@ boutonOuvrirIa.addEventListener("click", () => {
     titre: lien && titre === domaine(lien) ? "" : titre,
     lien,
     note: champNote.value.trim().slice(0, LONGUEUR_MAX_NOTE),
-    texte: texteCopie,
   };
   fermerAjout();
   ouvrirIa(type, depart);
