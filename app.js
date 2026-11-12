@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.15";
+const VERSION = "v1.16";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -783,6 +783,8 @@ document.getElementById("bouton-reglages").addEventListener("click", () => {
   panneauReglages.showModal();
 });
 for (const ligne of document.querySelectorAll(".ligne-reglage")) {
+  // « Notes » ouvre sa propre page (voir notes.js), pas une vue du panneau
+  if (!ligne.dataset.vue) continue;
   ligne.addEventListener("click", () => afficherVue(ligne.dataset.vue));
 }
 reglagesRetour.addEventListener("click", () => afficherVue("menu"));
@@ -887,7 +889,8 @@ function verrouillerPage() {
   document.documentElement.classList.add("verrou");
 }
 function deverrouillerPage() {
-  if (!menuCategories.open && !feuilleAjout.open && !pageFiche.open && !pageIa.open) {
+  const pageNotesOuverte = document.getElementById("page-notes").open;
+  if (!menuCategories.open && !feuilleAjout.open && !pageFiche.open && !pageIa.open && !pageNotesOuverte) {
     document.documentElement.classList.remove("verrou");
   }
 }
@@ -1986,8 +1989,10 @@ const FORMAT_NOM = "mes-listes";
 // verre, méthode et alcool de base (cocktails).
 // Version 8 : + fiches créées avec l'IA (facultatif) : ingrédients détaillés
 // (quantité, unité, nom) et une photo gardée dans la fiche (image JPEG).
-// L'app sait lire les huit. Les clés (TMDB, RAWG, Gemini) n'y sont jamais.
-const FORMAT_VERSION = 8;
+// Version 9 : + notes (Réglages → Notes) : texte, état, date de création.
+// Un fichier sans notes laisse les notes actuelles intactes.
+// L'app sait lire les neuf. Les clés (TMDB, RAWG, Gemini) n'y sont jamais.
+const FORMAT_VERSION = 9;
 
 const boutonExporter = document.getElementById("bouton-exporter");
 const boutonImporter = document.getElementById("bouton-importer");
@@ -2033,6 +2038,7 @@ async function exporter() {
     dateExport: new Date().toISOString(),
     elements: elements,
     supprimes: supprimes,
+    notes: notesPourExport(), // version 9 : notes de Réglages → Notes
   };
   const texte = JSON.stringify(donnees, null, 2); // indenté : lisible à l'œil
   const date = new Date().toLocaleDateString("sv-SE"); // donne "2026-11-09"
@@ -2156,7 +2162,9 @@ function verifierFichier(donnees) {
     return { titre: el.titre.trim(), type: el.type, dateSuppression: el.dateSuppression };
   });
 
-  return { elements: nouveauxElements, supprimes: nouveauxSupprimes };
+  // Notes (version 9, facultatives) : null si le fichier n'en contient pas
+  // (les notes actuelles seront alors gardées) ; vérifiées dans notes.js
+  return { elements: nouveauxElements, supprimes: nouveauxSupprimes, notes: verifierNotesFichier(donnees.notes) };
 }
 
 // Le fichier a été choisi : on le lit, on le vérifie, puis on demande confirmation
@@ -2184,12 +2192,21 @@ async function lireFichierChoisi() {
   // Préparer la fenêtre de confirmation
   const nbActuels = elements.length + supprimes.length;
   const nbImportes = importEnAttente.elements.length + importEnAttente.supprimes.length;
-  const listeVide = nbActuels === 0;
-  texteImport.textContent = listeVide
+  // Notes (version 9) : remplacées seulement si le fichier en contient
+  const notesDuFichier = importEnAttente.notes;
+  const notesPerdues = notesDuFichier === null ? 0 : notes.length;
+  const listeVide = nbActuels === 0 && notesPerdues === 0;
+  const phraseNotes = notesDuFichier === null
+    ? (notes.length ? ` Le fichier ne contient pas de notes : tes ${pluriel(notes.length, "note")} sont gardées.` : "")
+    : (notes.length
+      ? ` Tes ${pluriel(notes.length, "note")} seront remplacées par les ${pluriel(notesDuFichier.length, "note")} du fichier.`
+      : ` Le fichier contient ${pluriel(notesDuFichier.length, "note")}.`);
+  texteImport.textContent = (nbActuels === 0
     ? `Ta liste actuelle est vide. Elle sera remplacée par celle du fichier (${resumer(importEnAttente.elements, importEnAttente.supprimes)}).`
     : `Tu vas perdre ${pluriel(nbActuels, "élément")} de ta liste actuelle (${resumer(elements, supprimes)}). ` +
-      `Ils seront remplacés par les ${pluriel(nbImportes, "élément")} du fichier (${resumer(importEnAttente.elements, importEnAttente.supprimes)}).`;
-  // Pas de sauvegarde à proposer si la liste actuelle est vide
+      `Ils seront remplacés par les ${pluriel(nbImportes, "élément")} du fichier (${resumer(importEnAttente.elements, importEnAttente.supprimes)}).`) +
+    phraseNotes;
+  // Pas de sauvegarde à proposer si rien ne sera perdu
   conseilSauvegarde.hidden = listeVide;
   boutonSauverAvant.hidden = listeVide;
   infoSauvegardeFaite.hidden = true;
@@ -2205,6 +2222,9 @@ function remplacerListe() {
   supprimes = importEnAttente.supprimes;
   try {
     sauvegarder();
+    // Notes du fichier (s'il en contient) ; en cas d'échec, notes.js
+    // remet les anciennes et on remet aussi la liste
+    if (importEnAttente.notes !== null) remplacerNotes(importEnAttente.notes);
   } catch (erreur) {
     // Mémoire du téléphone pleine, etc. : on remet tout comme avant
     elements = anciensElements;

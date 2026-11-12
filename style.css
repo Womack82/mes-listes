@@ -444,7 +444,10 @@ h1, h2 { color: var(--texte); }
    non le premier bouton : pas de contour sur « Film ». Le menu lui-même
    n'en affiche pas non plus. */
 .menu-categories:focus,
-.menu-carte:focus { outline: none; }
+.menu-carte:focus,
+/* Même chose pour les pages plein écran (fiche, Notes, Photos et texte) :
+   c'est leur contenu qui reçoit le focus, sans contour */
+.fiche-contenu:focus { outline: none; }
 .menu-categories::backdrop { background: var(--voile); }
 .menu-categories[open]::backdrop { animation: fondu 200ms ease-out; }
 
@@ -1471,6 +1474,237 @@ form.edition .ia-photo-choix input {
 .ia-boutons { margin-top: 16px; }
 .ia-boutons .bouton-contour { margin-top: 0; min-height: 52px; border-radius: 26px; font-size: 16px; }
 
+/* ---------- Page Notes (Réglages → Notes), façon Rappels ---------- */
+/* Même fond dégradé que les fiches ; arrivée en fondu léger */
+.page-notes[open] { animation: fondu 220ms ease-out; }
+.notes-contenu {
+  /* place sous la dernière ligne pour qu'elle reste au-dessus du clavier */
+  padding-bottom: calc(var(--clavier-ecran, 0px) + env(safe-area-inset-bottom) + 48px);
+}
+
+/* Barre du haut : ‹ à gauche, … à droite (boutons ronds en verre, 48 px) */
+.notes-barre {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  padding: max(12px, calc(env(safe-area-inset-top) + 6px)) 0 6px;
+}
+.bouton-verre-rond {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: var(--verre-bord);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: var(--verre-ombre);
+  color: var(--bleu);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.bouton-verre-rond .icone-svg { width: 24px; height: 24px; stroke-width: 2.4; }
+.icone-plein { fill: currentColor; stroke: none; }
+
+/* Menu « … » : petite carte en verre sous le bouton */
+.notes-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  padding: 6px;
+  border-radius: 22px;
+  animation: fondu 180ms ease-out;
+}
+.notes-menu button {
+  min-height: 48px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 16px;
+  background: none;
+  color: var(--texte);
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+}
+.notes-menu button + button { border-top: 1px solid rgba(10, 35, 66, 0.08); border-radius: 0 0 16px 16px; }
+.notes-menu .notes-menu-rouge { color: var(--rouge); }
+.notes-menu button:disabled { opacity: 0.4; cursor: default; }
+
+/* Titre « Notes » en grand */
+.notes-titre {
+  margin: 6px 4px 10px;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--texte);
+}
+/* « Copié », « Note supprimée »… : petite pastille qui disparaît seule */
+.notes-annonce {
+  display: inline-block;
+  margin: 0 4px 8px;
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: var(--bleu);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  animation: fondu 180ms ease-out;
+}
+
+/* Lignes : pas de carte ni de bordure, seulement un trait très fin
+   sous le texte (comme Rappels) */
+.notes-liste { list-style: none; padding: 0; margin: 0; }
+.note { position: relative; overflow: hidden; }
+.note::after {
+  content: "";
+  position: absolute;
+  left: 44px;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: rgba(10, 35, 66, 0.08);
+}
+.note-glisse {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 11px 4px 11px 2px;
+  touch-action: pan-y; /* le défilement vertical reste au navigateur */
+  transition: transform 220ms var(--courbe);
+}
+.note-glisse.en-glissement { transition: none; }
+
+/* Cercle de 28 px (zone d'appui de 44 px autour) */
+.note-cercle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  margin-top: -1px;
+  padding: 0;
+  border: 2px solid #8fa3ba;
+  border-radius: 50%;
+  background: transparent;
+  transition: background-color 180ms ease-out, border-color 180ms ease-out;
+}
+.note-cercle::after { content: ""; position: absolute; inset: -8px; }
+.note-crochet {
+  width: 18px;
+  height: 18px;
+  stroke: white;
+  stroke-width: 3;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 180ms ease-out, transform 220ms var(--courbe);
+}
+.note.fait .note-cercle { background: var(--bleu); border-color: var(--bleu); }
+.note.fait .note-crochet { opacity: 1; transform: none; }
+/* Ligne d'ajout : cercle en pointillés */
+.note-cercle-ajout { border-style: dashed; }
+
+/* Texte : 18 px, marine, sur plusieurs lignes si besoin ; le champ est
+   invisible (pas de bordure ni de fond) */
+.note-texte {
+  flex: 1;
+  min-width: 0;
+  min-height: 25px;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--texte);
+  font: inherit;
+  font-size: 18px; /* au moins 16 px : sinon l'iPhone zoome dans le champ */
+  line-height: 1.4;
+  resize: none;
+  overflow: hidden;
+  word-break: break-word;
+}
+.note-texte::placeholder { color: #8fa3ba; }
+.note.fait .note-texte {
+  color: var(--gris);
+  text-decoration: line-through;
+  text-decoration-color: rgba(74, 93, 120, 0.6);
+}
+
+/* « Supprimer » rouge derrière la ligne, révélé en glissant vers la gauche */
+.note-supprimer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: none;
+  background: var(--rouge);
+  color: white;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  visibility: hidden;
+  transition: width 220ms var(--courbe);
+}
+.note.en-glissement .note-supprimer { transition: none; }
+.note.en-glissement .note-supprimer,
+.note.ouverte .note-supprimer { visibility: visible; }
+.note.ouverte .note-supprimer { width: 96px; }
+
+/* Ordinateur (souris) : petit bouton ✕ discret au survol de la ligne */
+.note-supprimer-survol {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  margin-top: -3px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--gris);
+}
+.note-supprimer-survol .icone-svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) {
+  .note-supprimer-survol { display: flex; opacity: 0; transition: opacity 150ms ease-out; }
+  .note:hover .note-supprimer-survol,
+  .note-supprimer-survol:focus-visible { opacity: 1; }
+  .note-supprimer-survol:hover { color: var(--rouge); background: rgba(180, 35, 24, 0.08); }
+}
+
+.notes-vide { margin: 14px 4px 0 46px; font-size: 14px; color: var(--gris); }
+
+/* « Terminées (N) » : repliée par défaut, texte gris */
+.notes-bloc-faites { margin-top: 22px; }
+.notes-bascule {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--gris);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+}
+.notes-chevron { width: 18px; height: 18px; transition: transform 200ms var(--courbe); }
+.notes-bascule[aria-expanded="true"] .notes-chevron { transform: rotate(90deg); }
+
 /* ---------- Mentions TMDB et RAWG ---------- */
 .mentions {
   margin-top: 28px;
@@ -1502,6 +1736,7 @@ form.edition .ia-photo-choix input {
   .menu-carte,
   .fiche-retour,
   .portions,
+  .bouton-verre-rond,
   #fenetre-import {
     background: white;
     -webkit-backdrop-filter: none;

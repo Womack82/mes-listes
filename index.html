@@ -128,6 +128,14 @@
 
       <!-- Menu : une ligne par rubrique -->
       <div id="vue-menu">
+        <!-- Notes : ouvre la page Notes (pas une vue du panneau), nombre de notes à faire -->
+        <button type="button" id="ligne-notes" class="ligne-reglage">
+          <!-- Bloc-notes -->
+          <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M9 8h6 M9 12h6 M9 16h3"/></svg></span>
+          <span class="ligne-textes"><span class="ligne-titre">Notes</span></span>
+          <span id="badge-notes" class="badge" aria-label="notes à faire">0</span>
+          <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
         <button type="button" class="ligne-reglage" data-vue="faits">
           <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg></span>
           <span class="ligne-textes"><span class="ligne-titre">Terminés</span></span>
@@ -390,7 +398,7 @@
   <!-- Page de fiche (recette, cocktail) : s'ouvre quand on touche la carte.
        Tout le texte est mis par app.js avec textContent (aucun HTML importé). -->
   <dialog id="fiche" class="fiche-page" aria-labelledby="fiche-titre">
-    <div class="fiche-contenu">
+    <div class="fiche-contenu" tabindex="-1" autofocus>
       <div class="fiche-haut">
         <button type="button" id="fiche-retour" class="bouton-rond fiche-retour" aria-label="Retour">
           <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
@@ -446,12 +454,55 @@
     </div>
   </dialog>
 
+  <!-- Page Notes (Réglages → Notes) : liste simple à cocher, façon Rappels.
+       Le texte des notes est mis par notes.js dans des champs (aucun HTML). -->
+  <dialog id="page-notes" class="fiche-page page-notes" aria-labelledby="notes-titre">
+    <div class="fiche-contenu notes-contenu" tabindex="-1" autofocus>
+      <div class="notes-barre">
+        <button type="button" id="notes-retour" class="bouton-verre-rond" aria-label="Retour aux réglages">
+          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <button type="button" id="notes-menu-bouton" class="bouton-verre-rond" aria-label="Plus d'options"
+                aria-haspopup="true" aria-expanded="false" aria-controls="notes-menu">
+          <svg viewBox="0 0 24 24" class="icone-svg icone-plein" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>
+        </button>
+        <div id="notes-menu" class="notes-menu verre-flou" hidden>
+          <button type="button" id="notes-copier">Copier les notes à faire</button>
+          <button type="button" id="notes-supprimer-faites" class="notes-menu-rouge">Supprimer les notes terminées</button>
+        </div>
+      </div>
+      <h2 id="notes-titre" class="notes-titre">Notes</h2>
+      <p id="notes-annonce" class="notes-annonce" role="status" hidden></p>
+
+      <!-- À faire (les plus récentes en bas), puis la ligne d'ajout -->
+      <ul id="notes-liste" class="notes-liste" aria-label="Notes à faire"></ul>
+      <div id="notes-ligne-ajout" class="note note-ajout">
+        <div class="note-glisse">
+          <span class="note-cercle note-cercle-ajout" aria-hidden="true"></span>
+          <textarea id="notes-nouvelle" class="note-texte" rows="1" maxlength="1000"
+                    enterkeyhint="next" autocomplete="off" autocorrect="on" autocapitalize="sentences"
+                    aria-label="Nouvelle note" placeholder="Nouvelle note"></textarea>
+        </div>
+      </div>
+      <p id="notes-vide" class="notes-vide" hidden>Aucune note pour l'instant. Touchez « Nouvelle note » pour noter une idée.</p>
+
+      <!-- Terminées (N) : repliée par défaut -->
+      <section id="notes-bloc-faites" class="notes-bloc-faites" hidden>
+        <button type="button" id="notes-bascule-faites" class="notes-bascule" aria-expanded="false" aria-controls="notes-faites">
+          <span id="notes-bascule-texte">Terminées (0)</span>
+          <svg viewBox="0 0 24 24" class="icone-svg notes-chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <ul id="notes-faites" class="notes-liste notes-liste-faites" aria-label="Notes terminées" hidden></ul>
+      </section>
+    </div>
+  </dialog>
+
   <!-- Ajout avec l'IA (Gemini) : photos et / ou texte → brouillon → Enregistrer.
        Rien n'est envoyé sans un appui sur « Analyser » ou « Revérifier » ;
        rien n'est enregistré sans un appui sur « Enregistrer ».
        Tout le texte est mis par app.js avec textContent ou dans des champs. -->
   <dialog id="page-ia" class="fiche-page page-ia" aria-labelledby="ia-titre">
-    <div class="fiche-contenu">
+    <div class="fiche-contenu" tabindex="-1" autofocus>
       <div class="fiche-haut ia-haut">
         <button type="button" id="ia-fermer" class="bouton-rond fiche-retour" aria-label="Fermer">
           <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -661,5 +712,6 @@
   <script src="recettes.js"></script>
   <script src="ia.js"></script>
   <script src="app.js"></script>
+  <script src="notes.js"></script>
 </body>
 </html>
