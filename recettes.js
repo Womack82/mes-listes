@@ -253,11 +253,27 @@ const FRACTIONS_SIMPLES = [["½", 1 / 2], ["¼", 1 / 4], ["¾", 3 / 4], ["⅓", 
 // Un nombre au sens large, du plus long au plus court :
 // « 1 1/2 », « 1½ », « 1/2 », « 1 000 », « 1,5 » / « 1.5 » / « 2 », « ½ »
 const NOMBRE = `(?:\\d+[ \\u00a0]+\\d+[/⁄]\\d+|\\d+[ \\u00a0]?[${CAR_FRACTIONS}]|\\d+[/⁄]\\d+|\\d{1,3}(?:[ \\u00a0\\u202f]\\d{3})+(?![\\d/⁄.,])|\\d+(?:[.,]\\d+)?|[${CAR_FRACTIONS}])`;
-// Au début de la ligne : un nombre, ou une plage « 2-3 », « 2 à 3 », « 2 ou 3 ».
+// Puce éventuelle en début de ligne (texte collé) : « - », « • », « * »…
+const PUCE = `(?:[-–—•*·▪●◦]\\s*)?`;
+// Au début de la ligne (après une puce) : un nombre, ou une plage « 2-3 »,
+// « 2 à 3 », « 2 ou 3 ».
 // Pas de pourcentage ni de degrés (« 70 % de cacao » ne change pas).
 const MOTIF_QUANTITE = new RegExp(
-  `^(\\s*)(${NOMBRE})(?:(\\s*[-–—]\\s*|\\s+(?:à|ou|to)\\s+)(${NOMBRE}))?(?![\\d/⁄])(?!\\s*[%°])`
+  `^(\\s*${PUCE})(${NOMBRE})(?:(\\s*[-–—]\\s*|\\s+(?:à|ou|to)\\s+)(${NOMBRE}))?(?![\\d/⁄])(?!\\s*[%°])`
 );
+// Nombres écrits en lettres au début de la ligne : « une pincée », « deux œufs ».
+// « un peu », « une demi… » et « un demi… » ne sont pas des quantités à multiplier.
+const NOMBRES_EN_LETTRES = {
+  un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6,
+  sept: 7, huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12,
+};
+const MOTIF_MOT_QUANTITE = new RegExp(
+  `^(\\s*${PUCE})(${Object.keys(NOMBRES_EN_LETTRES).join("|")})(?=\\s)(?!\\s+(?:peu|demie?|petit\\s+peu)(?![\\p{L}]))`,
+  "iu"
+);
+// « Farine : 200 g », « Farine T55 : 200 g » : le nom avant les deux-points
+// (assez court, ne commence pas par un chiffre)
+const MOTIF_NOM_DEUX_POINTS = /^(\s*[^\s:\d][^:]{0,59}?\s?:\s*)(?=\S)/;
 
 // Texte → nombre (NaN si illisible)
 function lireNombre(texte) {
@@ -299,34 +315,59 @@ function adapterIngredient(ligne, facteur) {
   const intacte = { avant: "", quantite: "", apres: String(ligne ?? "") };
   try {
     if (typeof ligne !== "string" || !Number.isFinite(facteur) || facteur <= 0) return intacte;
-    const m = MOTIF_QUANTITE.exec(ligne);
-    if (!m) return intacte;
-    const [tout, espace, texte1, separateurPlage, texte2] = m;
-    const n1 = lireNombre(texte1);
-    const n2 = texte2 ? lireNombre(texte2) : null;
-    if (!(n1 > 0 && Number.isFinite(n1))) return intacte;
-    if (texte2 && !(n2 > 0 && Number.isFinite(n2))) return intacte;
-
-    // Fractions dans l'original, ou petits nombres entiers (3 œufs → 1 ½) :
-    // on écrit le résultat en fraction quand c'est naturel
-    const enFraction = new RegExp(`[/⁄${CAR_FRACTIONS}]`).test(tout);
-    const entiers = Number.isInteger(n1) && (n2 === null || Number.isInteger(n2));
-    const separateur = /\d\.\d/.test(tout) ? "." : ",";
-    const formater = (n) => {
-      const x = n * facteur;
-      return formaterNombre(x, enFraction || (entiers && x < 10), separateur);
-    };
-    const t1 = formater(n1);
-    const t2 = texte2 ? formater(n2) : "";
-    if (!t1 || (texte2 && !t2)) return intacte;
-    return {
-      avant: espace,
-      quantite: texte2 ? `${t1}${separateurPlage}${t2}` : t1,
-      apres: ligne.slice(tout.length),
-    };
+    // 1. Quantité au début de la ligne (après une puce éventuelle)
+    const debut = adapterDebut(ligne, facteur);
+    if (debut) return debut;
+    // 2. « Farine : 200 g » : quantité juste après les deux-points
+    const nom = MOTIF_NOM_DEUX_POINTS.exec(ligne);
+    if (nom) {
+      const suite = adapterDebut(ligne.slice(nom[0].length), facteur);
+      if (suite) return { ...suite, avant: nom[0] + suite.avant };
+    }
+    return intacte;
   } catch {
     return intacte;
   }
+}
+
+// Adapte la quantité écrite au début d'un texte (en chiffres ou en lettres).
+// Renvoie { avant, quantite, apres }, ou null si aucune quantité n'est reconnue.
+function adapterDebut(ligne, facteur) {
+  const m = MOTIF_QUANTITE.exec(ligne);
+  if (!m) return adapterMot(ligne, facteur);
+  const [tout, espace, texte1, separateurPlage, texte2] = m;
+  const n1 = lireNombre(texte1);
+  const n2 = texte2 ? lireNombre(texte2) : null;
+  if (!(n1 > 0 && Number.isFinite(n1))) return null;
+  if (texte2 && !(n2 > 0 && Number.isFinite(n2))) return null;
+
+  // Fractions dans l'original, ou petits nombres entiers (3 œufs → 1 ½) :
+  // on écrit le résultat en fraction quand c'est naturel
+  const enFraction = new RegExp(`[/⁄${CAR_FRACTIONS}]`).test(tout);
+  const entiers = Number.isInteger(n1) && (n2 === null || Number.isInteger(n2));
+  const separateur = /\d\.\d/.test(tout) ? "." : ",";
+  const formater = (n) => {
+    const x = n * facteur;
+    return formaterNombre(x, enFraction || (entiers && x < 10), separateur);
+  };
+  const t1 = formater(n1);
+  const t2 = texte2 ? formater(n2) : "";
+  if (!t1 || (texte2 && !t2)) return null;
+  return {
+    avant: espace,
+    quantite: texte2 ? `${t1}${separateurPlage}${t2}` : t1,
+    apres: ligne.slice(tout.length),
+  };
+}
+
+// « une pincée de sel » ×2 → « 2 pincée de sel » (le mot devient un nombre)
+function adapterMot(ligne, facteur) {
+  const m = MOTIF_MOT_QUANTITE.exec(ligne);
+  if (!m) return null;
+  const x = NOMBRES_EN_LETTRES[m[2].toLowerCase()] * facteur;
+  const quantite = formaterNombre(x, x < 10, ",");
+  if (!quantite) return null;
+  return { avant: m[1], quantite, apres: ligne.slice(m[0].length) };
 }
 
 // Minutes → « 20 min », « 1 h », « 1 h 30 »
