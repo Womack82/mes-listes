@@ -82,8 +82,10 @@ Elle donne deux codes : un **Client ID** et un **Client Secret**.
 5. Remplis :
    - **Nom** : `Wodo jeux` (le nom doit être unique sur Twitch : ajoute
      ton pseudo si celui-ci est déjà pris) ;
-   - **URL de redirection OAuth** : `http://localhost` (obligatoire mais
-     inutilisée ici), puis clique sur **Ajouter** ;
+   - **URL de redirection OAuth** : `https://localhost` (obligatoire mais
+     inutilisée ici ; Twitch exige une adresse en **https**), puis clique
+     sur **Ajouter**. Si Twitch la refuse, mets l'adresse de l'app :
+     `https://womack82.github.io/mes-listes/` ;
    - **Catégorie** : **Application Integration** ;
    - **Type de client** : **Confidentiel**.
 6. Coche la case anti-robot, puis **Créer**.
