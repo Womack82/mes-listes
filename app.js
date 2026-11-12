@@ -652,6 +652,15 @@ function lireLignes(champ, max, longueur) {
     .map((ligne) => ligne.slice(0, longueur));
 }
 
+// Une zone de texte d'étapes → la liste des étapes. Une étape tapée
+// « 1. Mélanger » devient « Mélanger » (la liste est déjà numérotée) ;
+// « #Titre » devient « # Titre » (titre de partie)
+function lireChampEtapes(champ) {
+  return lireLignes(champ, LIMITES_FICHE.etapes, LIMITES_FICHE.longueurEtape)
+    .map((e) => (e.startsWith("#") ? `# ${e.replace(/^#+\s*/, "")}` : e.replace(/^\d{1,2}\s*[.)]\s+/, "")))
+    .filter((e) => e !== "# " && e !== "");
+}
+
 actionsEdition.addEventListener("submit", (evenement) => {
   evenement.preventDefault();
   const nouveauTitre = editionTitre.value.trim();
@@ -686,11 +695,7 @@ actionsEdition.addEventListener("submit", (evenement) => {
       ingredients,
       // Fiche créée avec l'IA : les lignes inchangées gardent leur détail
       ingredientsDetail: detailPourLignes(ingredients, ancien.ingredients, ancien.ingredientsDetail),
-      // Une étape tapée « 1. Mélanger » devient « Mélanger » (la liste est
-      // déjà numérotée) ; « #Titre » devient « # Titre » (titre de partie)
-      etapes: lireLignes(editionEtapes, LIMITES_FICHE.etapes, LIMITES_FICHE.longueurEtape)
-        .map((e) => (e.startsWith("#") ? `# ${e.replace(/^#+\s*/, "")}` : e.replace(/^\d{1,2}\s*[.)]\s+/, "")))
-        .filter((e) => e !== "# " && e !== ""),
+      etapes: lireChampEtapes(editionEtapes),
     };
     // Seuls les champs visibles sont modifiés : la cuisson d'une recette
     // passée en cocktail (ou l'inverse) est gardée
@@ -763,6 +768,7 @@ const VUES = {
   sauvegarde: { titre: "Sauvegarde", bloc: document.getElementById("vue-sauvegarde") },
   cles: { titre: "Clés API", bloc: document.getElementById("vue-cles") },
   relais: { titre: "Import de recettes", bloc: document.getElementById("vue-relais") },
+  gemini: { titre: "IA (Gemini)", bloc: document.getElementById("vue-gemini") },
 };
 
 // Montre une seule vue du panneau ; la flèche de retour hors du menu
@@ -874,7 +880,7 @@ function verrouillerPage() {
   document.documentElement.classList.add("verrou");
 }
 function deverrouillerPage() {
-  if (!menuCategories.open && !feuilleAjout.open && !pageFiche.open) {
+  if (!menuCategories.open && !feuilleAjout.open && !pageFiche.open && !pageIa.open) {
     document.documentElement.classList.remove("verrou");
   }
 }
@@ -1425,6 +1431,485 @@ ficheSupprimer.addEventListener("click", () => {
   minuteurSuppressionFiche = setTimeout(annulerSuppressionFiche, 3000);
 });
 
+// --- 5 bis. Ajouter avec l'IA : photos et texte → Gemini → brouillon ---
+// 1. On ajoute des photos (jusqu'à 6, réduites tout de suite) et / ou du texte.
+// 2. « Analyser avec l'IA » envoie tout à Gemini en une seule fois (ia.js).
+// 3. La fiche revient en brouillon modifiable, avec les avertissements.
+// 4. « Enregistrer » crée la fiche. Les photos envoyées ne sont pas gardées,
+//    sauf celle choisie avec la case « Garder une photo ».
+// Le contenu de la page est oublié à sa fermeture.
+const pageIa = document.getElementById("page-ia");
+const iaTitre = document.getElementById("ia-titre");
+const iaSaisie = document.getElementById("ia-saisie");
+const iaCompte = document.getElementById("ia-compte");
+const iaMiniatures = document.getElementById("ia-miniatures");
+const iaAjouterPhoto = document.getElementById("ia-ajouter-photo");
+const iaFichiers = document.getElementById("ia-fichiers");
+const iaMessagePhotos = document.getElementById("ia-message-photos");
+const iaTexte = document.getElementById("ia-texte");
+const iaLien = document.getElementById("ia-lien");
+const iaAnalyser = document.getElementById("ia-analyser");
+const iaMessage = document.getElementById("ia-message");
+const iaChargement = document.getElementById("ia-chargement");
+const iaChargementTexte = document.getElementById("ia-chargement-texte");
+const iaBrouillon = document.getElementById("ia-brouillon");
+const iaAvertissements = document.getElementById("ia-avertissements");
+const iaListeAvertissements = document.getElementById("ia-liste-avertissements");
+const iaMessageBrouillon = document.getElementById("ia-message-brouillon");
+const iaBlocPhoto = document.getElementById("ia-bloc-photo");
+const iaGarderPhoto = document.getElementById("ia-garder-photo");
+const iaChoixPhoto = document.getElementById("ia-choix-photo");
+// Champs du brouillon
+const iaB = {
+  titre: document.getElementById("ia-b-titre"),
+  type: document.getElementById("ia-b-type"),
+  portions: document.getElementById("ia-b-portions"),
+  preparation: document.getElementById("ia-b-preparation"),
+  cuisson: document.getElementById("ia-b-cuisson"),
+  champCuisson: document.getElementById("ia-b-champ-cuisson"),
+  cocktail: document.getElementById("ia-b-cocktail"),
+  verre: document.getElementById("ia-b-verre"),
+  methode: document.getElementById("ia-b-methode"),
+  alcool: document.getElementById("ia-b-alcool"),
+  ingredients: document.getElementById("ia-b-ingredients"),
+  etapes: document.getElementById("ia-b-etapes"),
+  note: document.getElementById("ia-b-note"),
+  lien: document.getElementById("ia-b-lien"),
+};
+
+const TITRES_IA = { recette: "Recette : photos et texte", cocktail: "Cocktail : photos et texte" };
+
+let iaType = "recette";         // catégorie choisie (recette, cocktail)
+let iaPhotos = [];              // [{ fichier: JPEG réduit, adresse: pour la miniature }]
+let iaPreparation = false;      // photos en cours de réduction
+let iaControle = null;          // appel à Gemini en cours (pour « Annuler »)
+let iaOuverture = 0;            // change à chaque ouverture / fermeture de la page
+let iaEnregistrement = false;   // « Enregistrer » en cours (pas de double appui)
+let iaPhotoChoisie = 0;         // photo à garder (si la case est cochée)
+// Ce qui avait été tapé dans le calque d'ajout avant d'ouvrir cette page
+let iaDepart = { titre: "", note: "" };
+// Ingrédients tels que renvoyés par Gemini : chaque ligne restée identique
+// dans le brouillon garde sa quantité détaillée
+let iaReference = { lignes: [], detail: [] };
+
+// Une seule partie visible à la fois : saisie, chargement ou brouillon
+function montrerVueIa(nom) {
+  iaSaisie.hidden = nom !== "saisie";
+  iaChargement.hidden = nom !== "chargement";
+  iaBrouillon.hidden = nom !== "brouillon";
+  pageIa.scrollTop = 0;
+}
+
+// Tout oublier : photos (libère la mémoire), texte, brouillon, appel en cours
+function viderIa() {
+  iaOuverture++;
+  if (iaControle) iaControle.abort();
+  iaControle = null;
+  for (const photo of iaPhotos) URL.revokeObjectURL(photo.adresse);
+  iaPhotos = [];
+  iaPreparation = false;
+  iaEnregistrement = false;
+  iaTexte.value = "";
+  iaLien.value = "";
+  iaBrouillon.reset();
+  iaReference = { lignes: [], detail: [] };
+  iaPhotoChoisie = 0;
+  for (const zone of [iaMessage, iaMessagePhotos, iaMessageBrouillon]) zone.hidden = true;
+  afficherAvertissementsIa([]);
+  afficherMiniaturesIa();
+  majAnalyserIa();
+}
+
+// depart : { titre, lien, note } tapés dans le calque d'ajout
+function ouvrirIa(type, depart = {}) {
+  viderIa();
+  iaType = type;
+  iaTitre.textContent = TITRES_IA[type];
+  iaLien.value = depart.lien || "";
+  iaDepart = { titre: depart.titre || "", note: depart.note || "" };
+  montrerVueIa("saisie");
+  verrouillerPage();
+  pageIa.showModal();
+  pageIa.scrollTop = 0;
+}
+
+// Fermer : on demande confirmation si quelque chose a été commencé
+function quitterIa() {
+  const commence = iaPhotos.length > 0 || iaTexte.value.trim() !== "" || !iaBrouillon.hidden || iaControle !== null;
+  if (commence && !window.confirm("Quitter sans enregistrer ? Les photos, le texte et le brouillon seront perdus.")) return;
+  pageIa.close();
+}
+document.getElementById("ia-fermer").addEventListener("click", quitterIa);
+// Touche Échap : même chose (avec confirmation)
+pageIa.addEventListener("cancel", (evenement) => {
+  evenement.preventDefault();
+  quitterIa();
+});
+pageIa.addEventListener("close", () => {
+  viderIa();
+  deverrouillerPage();
+});
+
+// Depuis le calque d'ajout d'une recette ou d'un cocktail
+document.getElementById("bouton-ouvrir-ia").addEventListener("click", () => {
+  const type = categorieChoisie();
+  const depart = {
+    titre: champTitre.value.trim(),
+    lien: lienValide(champLien.value) || "",
+    note: champNote.value.trim().slice(0, LONGUEUR_MAX_NOTE),
+  };
+  fermerAjout();
+  ouvrirIa(type, depart);
+});
+
+// --- Photos ---
+const tailleTotaleIa = () => iaPhotos.reduce((total, photo) => total + photo.fichier.size, 0);
+
+function afficherMiniaturesIa() {
+  iaMiniatures.replaceChildren(...iaPhotos.map((photo, rang) => {
+    const li = document.createElement("li");
+    li.className = "ia-miniature";
+    const image = document.createElement("img");
+    image.src = photo.adresse;
+    image.alt = `Photo ${rang + 1}`;
+    const retirer = document.createElement("button");
+    retirer.type = "button";
+    retirer.className = "ia-retirer";
+    retirer.textContent = "✕";
+    retirer.setAttribute("aria-label", `Retirer la photo ${rang + 1}`);
+    retirer.addEventListener("click", () => {
+      URL.revokeObjectURL(photo.adresse);
+      iaPhotos = iaPhotos.filter((p) => p !== photo);
+      iaMessagePhotos.hidden = true;
+      afficherMiniaturesIa();
+      majAnalyserIa();
+    });
+    li.append(image, retirer);
+    return li;
+  }));
+  iaMiniatures.hidden = iaPhotos.length === 0;
+  iaCompte.textContent = `${iaPhotos.length} / ${LIMITES_IA.photos}`;
+  iaAjouterPhoto.hidden = iaPhotos.length >= LIMITES_IA.photos;
+  iaAjouterPhoto.disabled = iaPreparation;
+  iaAjouterPhoto.textContent = iaPreparation ? "Préparation des photos…" : "+ Ajouter une photo";
+}
+
+// « Analyser » : actif dès qu'il y a une photo ou du texte
+function majAnalyserIa() {
+  iaAnalyser.disabled = iaPreparation || (iaPhotos.length === 0 && iaTexte.value.trim() === "");
+}
+iaTexte.addEventListener("input", majAnalyserIa);
+
+iaAjouterPhoto.addEventListener("click", () => iaFichiers.click());
+
+// Photos choisies (photothèque ou appareil photo) : réduites une par une,
+// dans l'ordre, avant d'apparaître en miniature
+iaFichiers.addEventListener("change", async () => {
+  const choisies = [...iaFichiers.files];
+  iaFichiers.value = ""; // permet de rechoisir la même photo
+  if (choisies.length === 0) return;
+  iaMessagePhotos.hidden = true;
+  const ouverture = iaOuverture;
+  const problemes = [];
+  const place = LIMITES_IA.photos - iaPhotos.length;
+  if (choisies.length > place) {
+    problemes.push(`${LIMITES_IA.photos} photos au maximum : les photos en trop n'ont pas été ajoutées.`);
+  }
+  iaPreparation = true;
+  afficherMiniaturesIa();
+  majAnalyserIa();
+  for (const fichier of choisies.slice(0, Math.max(0, place))) {
+    let reduite;
+    try {
+      reduite = await reduireImage(fichier, LIMITES_IA.cote, LIMITES_IA.qualite);
+    } catch {
+      if (ouverture !== iaOuverture) return;
+      problemes.push(`« ${fichier.name} » : ${MESSAGES_IA.image}`);
+      continue;
+    }
+    if (ouverture !== iaOuverture) return; // page fermée entre-temps
+    if (tailleTotaleIa() + reduite.size > LIMITES_IA.tailleTotale) {
+      problemes.push("Taille totale des photos dépassée (environ 8 Mo) : retirez une photo pour en ajouter une autre.");
+      break;
+    }
+    iaPhotos.push({ fichier: reduite, adresse: URL.createObjectURL(reduite) });
+    afficherMiniaturesIa();
+  }
+  iaPreparation = false;
+  afficherMiniaturesIa();
+  majAnalyserIa();
+  if (problemes.length) afficherMessage(problemes.join(" "), false, iaMessagePhotos);
+});
+
+// --- Appel à Gemini (analyse ou revérification) ---
+// Montre la roue et « Annuler » ; en cas d'échec, revient à l'écran
+// d'avant avec un message simple. Rien de ce qui a été saisi n'est perdu.
+async function lancerAppelIa(texteChargement, vueRetour, zoneMessage, travail) {
+  const controle = new AbortController();
+  iaControle = controle;
+  iaChargementTexte.textContent = texteChargement;
+  montrerVueIa("chargement");
+  try {
+    await travail(controle.signal);
+    if (iaControle !== controle) return; // page fermée entre-temps
+    montrerVueIa("brouillon");
+  } catch (erreur) {
+    if (iaControle !== controle) return;
+    montrerVueIa(vueRetour);
+    afficherMessage(messageIa(erreur), false, zoneMessage);
+  } finally {
+    if (iaControle === controle) iaControle = null;
+  }
+}
+document.getElementById("ia-annuler").addEventListener("click", () => {
+  if (iaControle) iaControle.abort();
+});
+
+iaAnalyser.addEventListener("click", () => {
+  iaMessage.hidden = true;
+  const texte = iaTexte.value.trim().slice(0, LIMITES_IA.texte);
+  if (iaPreparation || (iaPhotos.length === 0 && texte === "")) return;
+  if (lireCleGemini() === "") {
+    afficherMessage(MESSAGES_IA["pas-de-cle"], false, iaMessage);
+    return;
+  }
+  const photos = iaPhotos.map((photo) => photo.fichier);
+  lancerAppelIa("Analyse en cours… (45 secondes au plus)", "saisie", iaMessage, async (signal) => {
+    const fiche = await analyserAvecGemini({ type: iaType, photos, texte }, signal);
+    if (signal.aborted) throw new ErreurIa("annule");
+    remplirBrouillonIa(fiche, true);
+  });
+});
+
+// --- Brouillon ---
+function afficherAvertissementsIa(liste) {
+  iaListeAvertissements.replaceChildren(...liste.map((texte) => {
+    const li = document.createElement("li");
+    li.textContent = texte;
+    return li;
+  }));
+  iaAvertissements.hidden = liste.length === 0;
+}
+
+// Cuisson pour une recette ; verre, méthode, alcool de base pour un cocktail
+function majTypeBrouillonIa() {
+  iaB.champCuisson.hidden = iaB.type.value !== "recette";
+  iaB.cocktail.hidden = iaB.type.value !== "cocktail";
+}
+iaB.type.addEventListener("change", majTypeBrouillonIa);
+
+// Case « Garder une photo » : s'il y a plusieurs photos, on choisit laquelle
+function afficherChoixPhotoIa() {
+  iaBlocPhoto.hidden = iaPhotos.length === 0;
+  iaPhotoChoisie = Math.min(iaPhotoChoisie, Math.max(0, iaPhotos.length - 1));
+  iaChoixPhoto.hidden = !iaGarderPhoto.checked || iaPhotos.length < 2;
+  iaChoixPhoto.replaceChildren(...iaPhotos.map((photo, rang) => {
+    const choix = document.createElement("label");
+    choix.className = "ia-photo-choix";
+    const bouton = document.createElement("input");
+    bouton.type = "radio";
+    bouton.name = "ia-photo-gardee";
+    bouton.checked = rang === iaPhotoChoisie;
+    bouton.setAttribute("aria-label", `Photo ${rang + 1}`);
+    bouton.addEventListener("change", () => { iaPhotoChoisie = rang; });
+    const image = document.createElement("img");
+    image.src = photo.adresse;
+    image.alt = "";
+    choix.append(bouton, image);
+    return choix;
+  }));
+}
+iaGarderPhoto.addEventListener("change", afficherChoixPhotoIa);
+
+// Met la fiche de Gemini dans le brouillon.
+// premiere = true : première analyse (tout est rempli) ;
+// false : revérification (un champ laissé vide par Gemini garde sa valeur).
+function remplirBrouillonIa(fiche, premiere) {
+  const remplir = (champ, valeur) => {
+    if (premiere || (valeur !== undefined && valeur !== "")) champ.value = valeur ?? "";
+  };
+  const avertissements = [...fiche.avertissements];
+  if (premiere) {
+    iaB.type.value = iaType;
+    if (fiche.type !== iaType) {
+      avertissements.unshift(fiche.type === "cocktail"
+        ? "L'IA pense qu'il s'agit plutôt d'un cocktail : vérifiez le type."
+        : "L'IA pense qu'il s'agit plutôt d'une recette : vérifiez le type.");
+    }
+    iaB.titre.value = fiche.titre || iaDepart.titre;
+    iaB.lien.value = lienValide(iaLien.value) || "";
+    iaB.note.value = [iaDepart.note, fiche.notes].filter(Boolean).join("\n\n").slice(0, LONGUEUR_MAX_NOTE);
+    iaGarderPhoto.checked = false;
+    iaPhotoChoisie = 0;
+  } else {
+    remplir(iaB.titre, fiche.titre);
+    remplir(iaB.note, fiche.notes.slice(0, LONGUEUR_MAX_NOTE));
+  }
+  remplir(iaB.portions, fiche.portions);
+  remplir(iaB.preparation, fiche.tempsPreparation);
+  remplir(iaB.cuisson, fiche.tempsCuisson);
+  remplir(iaB.verre, fiche.verre);
+  remplir(iaB.methode, fiche.methode);
+  remplir(iaB.alcool, fiche.alcoolBase);
+  if (premiere || fiche.ingredients.length) {
+    iaReference = {
+      lignes: fiche.ingredients.map((i) => i.ligne),
+      detail: fiche.ingredients.map((i) => i.detail),
+    };
+    iaB.ingredients.value = iaReference.lignes.join("\n");
+  }
+  if (premiere || fiche.etapes.length) iaB.etapes.value = fiche.etapes.join("\n");
+  afficherAvertissementsIa(avertissements);
+  majTypeBrouillonIa();
+  afficherChoixPhotoIa();
+  iaMessageBrouillon.hidden = true;
+}
+
+// Lit le brouillon. Renvoie { erreur } si un champ est invalide.
+function lireBrouillonIa() {
+  const type = iaB.type.value === "cocktail" ? "cocktail" : "recette";
+  const portions = lireEntier(iaB.portions, LIMITES_FICHE.portionsMax);
+  const preparation = lireEntier(iaB.preparation, LIMITES_FICHE.minutesMax);
+  const cuisson = type === "recette" ? lireEntier(iaB.cuisson, LIMITES_FICHE.minutesMax) : undefined;
+  if (Number.isNaN(portions)) return { erreur: `Portions : un nombre entier entre 1 et ${LIMITES_FICHE.portionsMax}.` };
+  if (Number.isNaN(preparation) || Number.isNaN(cuisson)) return { erreur: "Temps : un nombre entier de minutes (ou rien)." };
+  const texteLien = iaB.lien.value.trim();
+  const lien = lienValide(texteLien);
+  if (texteLien !== "" && !lien) return { erreur: "Ce lien n'est pas valide : il doit commencer par http:// ou https://." };
+  const ingredients = lireLignes(iaB.ingredients, LIMITES_FICHE.ingredients, LIMITES_FICHE.longueurIngredient);
+  const court = (champ) => (type === "cocktail" ? champ.value.trim().slice(0, LIMITES_FICHE.champCourt) : "");
+  return {
+    type,
+    titre: iaB.titre.value.trim().slice(0, LIMITES_FICHE.longueurTitre),
+    portions,
+    tempsPreparation: preparation,
+    tempsCuisson: cuisson,
+    verre: court(iaB.verre),
+    methode: court(iaB.methode),
+    alcoolBase: court(iaB.alcool),
+    ingredients,
+    ingredientsDetail: detailPourLignes(ingredients, iaReference.lignes, iaReference.detail),
+    etapes: lireChampEtapes(iaB.etapes),
+    note: iaB.note.value.trim().slice(0, LONGUEUR_MAX_NOTE),
+    lien,
+  };
+}
+
+// « Revérifier avec l'IA » : renvoie la fiche actuelle (texte seulement)
+document.getElementById("ia-reverifier").addEventListener("click", () => {
+  iaMessageBrouillon.hidden = true;
+  const b = lireBrouillonIa();
+  if (b.erreur) {
+    afficherMessage(b.erreur, false, iaMessageBrouillon);
+    return;
+  }
+  if (lireCleGemini() === "") {
+    afficherMessage(MESSAGES_IA["pas-de-cle"], false, iaMessageBrouillon);
+    return;
+  }
+  const fiche = {
+    type: b.type,
+    titre: b.titre,
+    portions: b.portions ?? null,
+    tempsPreparation: b.tempsPreparation ?? null,
+    tempsCuisson: b.tempsCuisson ?? null,
+    verre: b.verre,
+    methode: b.methode,
+    alcoolBase: b.alcoolBase,
+    ingredients: b.ingredients.map((ligne, i) => {
+      const d = b.ingredientsDetail && b.ingredientsDetail[i];
+      return d ? { quantite: d.q, unite: d.u, nom: d.n } : { quantite: null, unite: "", nom: ligne };
+    }),
+    etapes: b.etapes,
+    notes: b.note,
+  };
+  lancerAppelIa("Revérification en cours… (45 secondes au plus)", "brouillon", iaMessageBrouillon, async (signal) => {
+    const corrigee = await reverifierAvecGemini(fiche, signal);
+    if (signal.aborted) throw new ErreurIa("annule");
+    remplirBrouillonIa(corrigee, false);
+  });
+});
+
+document.getElementById("ia-retour-saisie").addEventListener("click", () => {
+  iaMessage.hidden = true;
+  montrerVueIa("saisie");
+});
+
+// « Enregistrer » : crée la fiche, puis l'ouvre
+iaBrouillon.addEventListener("submit", async (evenement) => {
+  evenement.preventDefault();
+  if (iaEnregistrement) return;
+  iaMessageBrouillon.hidden = true;
+  const b = lireBrouillonIa();
+  if (b.erreur) {
+    afficherMessage(b.erreur, false, iaMessageBrouillon);
+    return;
+  }
+  if (b.titre === "") {
+    afficherMessage("Donnez un titre à la fiche.", false, iaMessageBrouillon);
+    iaB.titre.focus();
+    return;
+  }
+  const infos = {
+    lien: b.lien,
+    note: b.note,
+    portions: b.portions,
+    tempsPreparation: b.tempsPreparation,
+    ingredients: b.ingredients,
+    ingredientsDetail: b.ingredientsDetail,
+    etapes: b.etapes,
+  };
+  if (b.type === "recette") infos.tempsCuisson = b.tempsCuisson;
+  else Object.assign(infos, { verre: b.verre, methode: b.methode, alcoolBase: b.alcoolBase });
+
+  iaEnregistrement = true;
+  const ouverture = iaOuverture;
+  let photoPerdue = false;
+  // Photo gardée : réduite à 800 px (environ 100 Ko)
+  if (iaGarderPhoto.checked && iaPhotos[iaPhotoChoisie]) {
+    try {
+      infos.photoPerso = await photoPourFiche(iaPhotos[iaPhotoChoisie].fichier);
+    } catch {
+      infos.photoPerso = null;
+    }
+    if (ouverture !== iaOuverture) return; // page fermée entre-temps
+    if (!infos.photoPerso) {
+      delete infos.photoPerso;
+      photoPerdue = true;
+    }
+  }
+
+  // Mémoire de l'app pleine : on réessaie sans la photo, sinon on prévient
+  // (la fiche à moitié ajoutée est retirée, rien n'est perdu du brouillon)
+  const avant = elements.length;
+  const essayer = () => {
+    try {
+      ajouter(b.titre, b.type, infos);
+      return true;
+    } catch {
+      elements.length = avant;
+      return false;
+    }
+  };
+  let reussi = essayer();
+  if (!reussi && infos.photoPerso) {
+    delete infos.photoPerso;
+    photoPerdue = true;
+    reussi = essayer();
+  }
+  iaEnregistrement = false;
+  if (!reussi) {
+    afficherMessage("Impossible d'enregistrer : la mémoire de l'app est pleine.", false, iaMessageBrouillon);
+    return;
+  }
+  const id = elements[elements.length - 1].id;
+  pageIa.close();
+  ouvrirFiche(id);
+  if (photoPerdue) {
+    window.alert("La fiche est enregistrée, mais sans la photo (mémoire de l'app presque pleine ou photo illisible).");
+  }
+});
+
 // --- 6. Sauvegarde : exporter et importer --------------------
 // Numéro de version du format du fichier. Si un jour on change la forme
 // du fichier, on passera à 2 et on saura lire les anciens fichiers.
@@ -1865,6 +2350,87 @@ brancherCle("RAWG", CLE_RAWG, "cle-rawg", (cle) => appelerRawg("/games", { page_
   });
 
   afficherEtatRelais();
+}
+
+// --- 7 quater. La clé et le modèle Gemini (ajout avec l'IA) --------
+// Gardés uniquement sur l'appareil (localStorage), jamais dans les exports.
+// La clé n'est jamais réaffichée : le champ se vide après l'enregistrement.
+{
+  const formulaireGemini = document.getElementById("formulaire-gemini");
+  const champCleGemini = document.getElementById("champ-cle-gemini");
+  const champModeleGemini = document.getElementById("champ-modele-gemini");
+  const etatGemini = document.getElementById("etat-gemini");
+  const messageGemini = document.getElementById("message-gemini");
+  const boutonEnregistrerGemini = document.getElementById("bouton-enregistrer-gemini");
+  const boutonEffacerGemini = document.getElementById("bouton-effacer-gemini");
+  document.getElementById("aide-modele-gemini").textContent =
+    `Par défaut : ${MODELE_GEMINI_DEFAUT} (rapide et peu coûteux). Les noms possibles sont sur ai.google.dev/gemini-api/docs/models.`;
+  champModeleGemini.placeholder = MODELE_GEMINI_DEFAUT;
+
+  const afficherEtatGemini = () => {
+    const presente = lireCleGemini() !== "";
+    etatGemini.textContent = presente
+      ? `✅ Une clé Gemini est enregistrée sur cet appareil (modèle : ${lireModeleGemini()}).`
+      : "Aucune clé Gemini enregistrée sur cet appareil : l'ajout par photos et texte est désactivé.";
+    champModeleGemini.value = lireModeleGemini();
+    boutonEffacerGemini.hidden = !presente;
+  };
+
+  // Enregistrer : on vérifie d'abord la clé et le modèle auprès de Google.
+  // Champ « Clé » vide : on garde la clé déjà enregistrée (changement de modèle).
+  formulaireGemini.addEventListener("submit", async (evenement) => {
+    evenement.preventDefault();
+    const modele = nettoyerNomModele(champModeleGemini.value || MODELE_GEMINI_DEFAUT);
+    if (!modele) {
+      afficherMessage(`Nom de modèle invalide (exemple : ${MODELE_GEMINI_DEFAUT}).`, false, messageGemini);
+      return;
+    }
+    const cle = champCleGemini.value.trim() || lireCleGemini();
+    if (cle === "") {
+      afficherMessage("Colle d'abord ta clé Gemini dans le champ.", false, messageGemini);
+      return;
+    }
+    boutonEnregistrerGemini.disabled = true;
+    afficherMessage("Vérification auprès de Google…", true, messageGemini);
+    let verifiee = true;
+    try {
+      await verifierGemini(cle, modele);
+    } catch (erreur) {
+      if (erreur.code === "cle") {
+        afficherMessage("Google refuse cette clé. Vérifie que tu l'as copiée en entier. Rien n'a été enregistré.", false, messageGemini);
+        return;
+      }
+      if (erreur.code === "modele") {
+        afficherMessage(`Le modèle « ${modele} » est introuvable pour cette clé. Rien n'a été enregistré.`, false, messageGemini);
+        return;
+      }
+      verifiee = false; // pas de connexion, quota… : on enregistre quand même
+    } finally {
+      boutonEnregistrerGemini.disabled = false;
+    }
+    try {
+      localStorage.setItem(CLE_GEMINI, cle);
+      localStorage.setItem(CLE_MODELE_GEMINI, modele);
+    } catch {
+      afficherMessage("Impossible d'enregistrer sur cet appareil (mémoire pleine ?).", false, messageGemini);
+      return;
+    }
+    champCleGemini.value = "";
+    afficherEtatGemini();
+    afficherMessage(verifiee
+      ? "Clé et modèle vérifiés et enregistrés. L'ajout par photos et texte est activé."
+      : "Enregistré, mais impossible de vérifier auprès de Google pour le moment (pas de connexion ?).",
+    verifiee, messageGemini);
+  });
+
+  boutonEffacerGemini.addEventListener("click", () => {
+    localStorage.removeItem(CLE_GEMINI);
+    champCleGemini.value = "";
+    afficherEtatGemini();
+    afficherMessage("Clé effacée de cet appareil.", true, messageGemini);
+  });
+
+  afficherEtatGemini();
 }
 
 // --- 7 bis. Les liens IMDb des films et séries ----------------

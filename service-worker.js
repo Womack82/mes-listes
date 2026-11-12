@@ -16,6 +16,7 @@ const FICHIERS = [
   "index.html",
   "style.css",
   "recettes.js",
+  "ia.js",
   "app.js",
   "manifest.json",
   // Logo et icônes (dossier icons)

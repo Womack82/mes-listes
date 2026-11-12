@@ -4,7 +4,8 @@
 // 1. lire une recette dans le HTML d'une page (bloc JSON-LD schema.org)
 // 2. adapter les quantités des ingrédients au nombre de personnes
 // 3. vérifier les champs d'une fiche venant d'un fichier de sauvegarde
-// Chargé avant app.js (voir index.html).
+// 4. ingrédients détaillés et photo gardée (fiches créées avec l'IA)
+// Chargé avant ia.js et app.js (voir index.html).
 // ============================================================
 
 // Limites, pour qu'une page bizarre ne remplisse pas la mémoire du téléphone

@@ -173,6 +173,15 @@
           </span>
           <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
         </button>
+        <button type="button" class="ligne-reglage" data-vue="gemini">
+          <!-- Étincelles -->
+          <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8z M18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z"/></svg></span>
+          <span class="ligne-textes">
+            <span class="ligne-titre">IA (Gemini)</span>
+            <span class="ligne-sous-titre">Clé et modèle pour l'ajout par photos et texte</span>
+          </span>
+          <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
         <!-- Mentions exigées par TMDB et RAWG -->
         <footer class="mentions">
           <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">
@@ -272,6 +281,31 @@
             <button type="button" id="bouton-effacer-relais">Effacer</button>
           </div>
           <p id="message-relais" class="message" role="status" hidden></p>
+        </form>
+      </div>
+
+      <!-- IA (Gemini) : clé (jamais réaffichée) et modèle, gardés sur cet appareil -->
+      <div id="vue-gemini" hidden>
+        <form id="formulaire-gemini" class="sauvegarde" novalidate>
+          <p class="aide">
+            Clé API Gemini, pour créer une recette ou un cocktail à partir de
+            photos et de texte (à créer sur aistudio.google.com, « Get API key »).
+            Elle est gardée uniquement dans la mémoire de cet appareil : jamais
+            envoyée sur GitHub, jamais mise dans les exports, jamais réaffichée.
+          </p>
+          <p id="etat-gemini" class="aide"></p>
+          <label for="champ-cle-gemini" class="etiquette">Clé Gemini</label>
+          <input id="champ-cle-gemini" class="champ-reglage" type="password" autocomplete="off"
+                 autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Colle ta clé Gemini ici">
+          <label for="champ-modele-gemini" class="etiquette">Modèle Gemini</label>
+          <input id="champ-modele-gemini" class="champ-reglage" type="text" autocomplete="off"
+                 autocorrect="off" autocapitalize="off" spellcheck="false">
+          <p id="aide-modele-gemini" class="aide"></p>
+          <div class="boutons-sauvegarde">
+            <button type="submit" id="bouton-enregistrer-gemini">Enregistrer</button>
+            <button type="button" id="bouton-effacer-gemini">Effacer la clé</button>
+          </div>
+          <p id="message-gemini" class="message" role="status" hidden></p>
         </form>
       </div>
     </div>
@@ -411,6 +445,121 @@
     </div>
   </dialog>
 
+  <!-- Ajout avec l'IA (Gemini) : photos et / ou texte → brouillon → Enregistrer.
+       Rien n'est envoyé sans un appui sur « Analyser » ou « Revérifier » ;
+       rien n'est enregistré sans un appui sur « Enregistrer ».
+       Tout le texte est mis par app.js avec textContent ou dans des champs. -->
+  <dialog id="page-ia" class="fiche-page page-ia" aria-labelledby="ia-titre">
+    <div class="fiche-contenu">
+      <div class="fiche-haut ia-haut">
+        <button type="button" id="ia-fermer" class="bouton-rond fiche-retour" aria-label="Fermer">
+          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <h2 id="ia-titre" class="ia-titre verre">Recette : photos et texte</h2>
+      </div>
+
+      <!-- Étape 1 : photos, texte, lien -->
+      <section id="ia-saisie">
+        <div class="fiche-bloc verre">
+          <h3>Photos <span id="ia-compte" class="ia-compte"></span></h3>
+          <ul id="ia-miniatures" class="ia-miniatures"></ul>
+          <button type="button" id="ia-ajouter-photo" class="bouton-contour">+ Ajouter une photo</button>
+          <input type="file" id="ia-fichiers" accept="image/*" multiple hidden>
+          <p id="ia-message-photos" class="message erreur" role="status" hidden></p>
+        </div>
+        <div class="fiche-bloc verre ia-champs">
+          <h3><label for="ia-texte">Texte</label></h3>
+          <textarea id="ia-texte" rows="6" maxlength="20000" autocapitalize="sentences"
+                    placeholder="Collez ici une légende de vidéo, un texte copié d'une page…"></textarea>
+          <label for="ia-lien" class="etiquette">Lien source (facultatif)</label>
+          <input id="ia-lien" type="url" inputmode="url" autocomplete="off" autocorrect="off"
+                 autocapitalize="off" spellcheck="false" placeholder="https://…">
+        </div>
+        <p class="ia-avis">Les photos et le texte sont envoyés à Google (Gemini) pour être analysés.</p>
+        <button type="button" id="ia-analyser" class="bouton-action principal ia-gros" disabled>
+          Analyser avec l'IA
+        </button>
+        <p id="ia-message" class="message erreur" role="status" hidden></p>
+      </section>
+
+      <!-- Pendant l'appel à Gemini : roue qui tourne et « Annuler » -->
+      <div id="ia-chargement" class="ia-chargement verre" role="status" hidden>
+        <span class="ia-roue" aria-hidden="true"></span>
+        <p id="ia-chargement-texte">Analyse en cours…</p>
+        <button type="button" id="ia-annuler" class="bouton-action secondaire">Annuler</button>
+      </div>
+
+      <!-- Étape 2 : brouillon modifiable -->
+      <form id="ia-brouillon" class="edition ia-brouillon" novalidate hidden>
+        <div id="ia-avertissements" class="ia-avertissements" role="status" hidden>
+          <strong>À vérifier</strong>
+          <ul id="ia-liste-avertissements"></ul>
+        </div>
+        <p class="aide ia-aide-brouillon">Brouillon : rien n'est enregistré tant que vous n'avez pas touché « Enregistrer ».</p>
+
+        <div class="fiche-bloc verre edition-recette">
+          <label for="ia-b-titre" class="etiquette">Titre</label>
+          <input id="ia-b-titre" type="text" maxlength="200" autocapitalize="sentences">
+          <label for="ia-b-type" class="etiquette">Type</label>
+          <select id="ia-b-type">
+            <option value="recette">🍳 Recette</option>
+            <option value="cocktail">🍸 Cocktail</option>
+          </select>
+          <div class="edition-colonnes">
+            <div class="edition-champ">
+              <label for="ia-b-portions" class="etiquette">Portions</label>
+              <input id="ia-b-portions" type="number" inputmode="numeric" min="1" max="100">
+            </div>
+            <div class="edition-champ">
+              <label for="ia-b-preparation" class="etiquette">Préparation (min)</label>
+              <input id="ia-b-preparation" type="number" inputmode="numeric" min="1" max="10000">
+            </div>
+            <div id="ia-b-champ-cuisson" class="edition-champ">
+              <label for="ia-b-cuisson" class="etiquette">Cuisson (min)</label>
+              <input id="ia-b-cuisson" type="number" inputmode="numeric" min="1" max="10000">
+            </div>
+          </div>
+          <div id="ia-b-cocktail" class="edition-recette">
+            <label for="ia-b-verre" class="etiquette">Verre</label>
+            <input id="ia-b-verre" type="text" maxlength="100" list="suggestions-verres" placeholder="Tumbler, coupe…">
+            <label for="ia-b-methode" class="etiquette">Méthode</label>
+            <input id="ia-b-methode" type="text" maxlength="100" list="suggestions-methodes" placeholder="Shaker, direct dans le verre…">
+            <label for="ia-b-alcool" class="etiquette">Alcool de base</label>
+            <input id="ia-b-alcool" type="text" maxlength="100" placeholder="Rhum, gin, vodka…">
+          </div>
+        </div>
+
+        <div class="fiche-bloc verre edition-recette">
+          <label for="ia-b-ingredients" class="etiquette">Ingrédients (un par ligne)</label>
+          <textarea id="ia-b-ingredients" rows="7"></textarea>
+          <label for="ia-b-etapes" class="etiquette">Étapes (une par ligne ; « # Titre » pour une partie)</label>
+          <textarea id="ia-b-etapes" rows="8"></textarea>
+          <label for="ia-b-note" class="etiquette">Note (facultatif)</label>
+          <textarea id="ia-b-note" rows="3" maxlength="1000"></textarea>
+          <label for="ia-b-lien" class="etiquette">Lien source (facultatif)</label>
+          <input id="ia-b-lien" type="url" inputmode="url" autocomplete="off" autocorrect="off"
+                 autocapitalize="off" spellcheck="false" placeholder="https://…">
+        </div>
+
+        <!-- Garder une photo : décoché par défaut ; sinon aucune photo n'est gardée -->
+        <div id="ia-bloc-photo" class="fiche-bloc verre">
+          <label class="ia-case">
+            <input type="checkbox" id="ia-garder-photo">
+            <span>Garder une photo comme image de la fiche</span>
+          </label>
+          <div id="ia-choix-photo" class="ia-choix-photo" role="radiogroup" aria-label="Photo à garder" hidden></div>
+        </div>
+
+        <p id="ia-message-brouillon" class="message" role="status" hidden></p>
+        <div class="boutons-actions ia-boutons">
+          <button type="submit" class="bouton-action principal">Enregistrer</button>
+          <button type="button" id="ia-reverifier" class="bouton-contour">Revérifier avec l'IA</button>
+          <button type="button" id="ia-retour-saisie" class="bouton-action">Retour aux photos et au texte</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
   <!-- Menu des catégories (bouton + de l'accueil) : 5 boutons ronds dans une
        carte en verre au-dessus de la barre, et une copie du bouton + qui
        pivote et devient une croix -->
@@ -468,6 +617,11 @@
           Importer depuis le lien
         </button>
         <p id="message-import" class="message" role="status" hidden></p>
+        <!-- Photos et texte : ouvre l'écran d'analyse avec l'IA (Gemini) -->
+        <button type="button" id="bouton-ouvrir-ia" class="bouton-contour bouton-ouvrir-ia">
+          <svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z M12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>
+          Photos et texte (IA)
+        </button>
         <textarea id="champ-note" rows="3" maxlength="1000" aria-label="Note (facultatif)"
                   autocapitalize="sentences" placeholder="Note (facultatif)"></textarea>
       </div>
@@ -503,6 +657,7 @@
   </dialog>
 
   <script src="recettes.js"></script>
+  <script src="ia.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
