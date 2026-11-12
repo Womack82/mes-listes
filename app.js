@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.24";
+const VERSION = "v1.25";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -2806,16 +2806,20 @@ const SOURCES = {
   tmdb: {
     nom: "TMDB",
     lireCle: lireCleTmdb,
-    // search/multi renvoie films, séries et personnes ensemble
+    // search/multi renvoie films, séries et personnes ensemble : les 20
+    // plus pertinents, qu'on range du plus récent au plus ancien
+    // (sans date à la fin), avant de garder les 10 premiers
     chercher: async (texte) => {
       const donnees = await appelerTmdb("/search/multi", {
         query: texte,
         language: "fr-FR",
         include_adult: "false",
       });
+      const dateSortie = (r) => r.release_date || r.first_air_date || ""; // « AAAA-MM-JJ »
       return donnees.results
         .filter((r) => r.media_type === "movie" || r.media_type === "tv") // sans les personnes
-        .slice(0, 8)
+        .sort((a, b) => dateSortie(b).localeCompare(dateSortie(a)))
+        .slice(0, RESULTATS_AFFICHES)
         .map(convertirResultatTmdb);
     },
   },
@@ -2824,13 +2828,21 @@ const SOURCES = {
     // Pas de clé dans l'app : il faut seulement l'adresse du relais
     lireCle: () => lireCle(CLE_RELAIS),
     // Titres d'IGDB, souvent en anglais (IGDB ne propose pas le français)
+    // Le relais renvoie les jeux qui ont un mot commençant par le texte
+    // tapé, déjà rangés du plus récent au plus ancien. On range quand même
+    // par année ici (sans année à la fin) au cas où le relais n'a pas
+    // encore été mis à jour sur Cloudflare.
     chercher: async (texte) => {
       const donnees = await appelerRelaisJeux("/igdb/recherche", { q: texte });
       if (!Array.isArray(donnees)) throw new Error("réponse illisible");
-      return donnees.map(convertirResultatIgdb).filter((r) => r.titre && r.idIgdb).slice(0, 8);
+      return donnees.map(convertirResultatIgdb).filter((r) => r.titre && r.idIgdb)
+        .sort((a, b) => (b.annee || 0) - (a.annee || 0))
+        .slice(0, RESULTATS_AFFICHES);
     },
   },
 };
+// Nombre de propositions affichées sous le champ titre
+const RESULTATS_AFFICHES = 10;
 
 // Quel service interroger selon le type choisi (aucun pour recette, cocktail, autre)
 function sourcePourType(type) {
