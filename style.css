@@ -762,7 +762,7 @@ a:focus-visible {
 /* Film, Série, Jeu : toute la hauteur visible, la liste remplit l'espace */
 .feuille.avec-recherche { height: var(--hauteur-max); }
 /* Clavier ouvert : pas de marge pour la barre du bas de l'iPhone (le clavier
-   la cache déjà), et pas de mention TMDB / RAWG (place gardée pour la liste) */
+   la cache déjà), et pas de mention TMDB / IGDB (place gardée pour la liste) */
 .feuille.clavier-ouvert .feuille-contenu { padding-bottom: 8px; }
 .feuille.clavier-ouvert .mention-calque { display: none; }
 /* Page derrière le menu et le calque : ne défile pas */
@@ -860,7 +860,7 @@ html.verrou body { overflow: hidden; }
   word-break: break-word;
 }
 
-/* « Données … fournies par TMDB / RAWG » : en petit, en bas de la liste */
+/* « Données … fournies par TMDB / IGDB » : en petit, en bas de la liste */
 .mention-calque {
   flex-shrink: 0;
   margin: auto 0 0;
@@ -870,9 +870,9 @@ html.verrou body { overflow: hidden; }
   color: var(--gris);
 }
 
-/* ---------- Résultats de la recherche TMDB / RAWG ---------- */
+/* ---------- Résultats de la recherche TMDB / IGDB ---------- */
 #etat-recherche { font-size: 14px; color: var(--gris); margin: 12px 4px 8px; }
-/* Petite indication sous le message (ex. : clé RAWG à renseigner) */
+/* Petite indication sous le message (ex. : adresse du relais à renseigner) */
 #etat-recherche .indication { display: block; margin-top: 4px; font-size: 13px; }
 
 /* Chaque résultat est un grand bouton : affiche + titre + type/année + « Ajouter » */
@@ -944,7 +944,7 @@ html.verrou body { overflow: hidden; }
   background: var(--carte);
   color: var(--texte);
 }
-#formulaire-cle-rawg { margin-top: 16px; }
+#vue-cles > .aide { margin: 16px 4px 0; font-size: 14px; }
 #formulaire-relais .etiquette { display: block; margin: 0 4px 6px; }
 
 /* ---------- Fenêtre de confirmation de l'import ---------- */
@@ -1719,7 +1719,7 @@ form.edition .ia-photo-choix input {
 .notes-chevron { width: 18px; height: 18px; transition: transform 200ms var(--courbe); }
 .notes-bascule[aria-expanded="true"] .notes-chevron { transform: rotate(90deg); }
 
-/* ---------- Mentions TMDB et RAWG ---------- */
+/* ---------- Mentions TMDB et IGDB ---------- */
 .mentions {
   margin-top: 28px;
   text-align: center;

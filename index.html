@@ -79,8 +79,8 @@
       <ul id="liste" class="liste"></ul>
       <p id="message-vide" class="aide vide" hidden></p>
 
-      <!-- Mentions exigées par les conditions d'utilisation de TMDB et de RAWG
-           (RAWG demande un lien cliquable vers rawg.io) -->
+      <!-- Mentions des sources : TMDB (exigée par ses conditions d'utilisation)
+           et IGDB (jeux) -->
       <footer id="mention-tmdb" class="mentions" hidden>
         <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">
           <img src="icons/tmdb.svg" alt="TMDB" width="120" height="16">
@@ -88,9 +88,9 @@
         <p lang="en">This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
         <p>Films, séries et affiches : données fournies par TMDB.</p>
       </footer>
-      <footer id="mention-rawg" class="mentions" hidden>
-        <p>Jeux vidéo : données fournies par
-          <a href="https://rawg.io/" target="_blank" rel="noopener">RAWG</a>.</p>
+      <footer id="mention-igdb" class="mentions" hidden>
+        <p>Jeux vidéo et jaquettes : données fournies par
+          <a href="https://www.igdb.com/" target="_blank" rel="noopener">IGDB</a>.</p>
       </footer>
     </section>
   </main>
@@ -164,15 +164,15 @@
           <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M16 7l3 3M18 5l2 2"/></svg></span>
           <span class="ligne-textes">
             <span class="ligne-titre">Clés API</span>
-            <span class="ligne-sous-titre">Recherche films, séries (TMDB) et jeux (RAWG)</span>
+            <span class="ligne-sous-titre">Recherche films et séries (TMDB)</span>
           </span>
           <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
         </button>
         <button type="button" class="ligne-reglage" data-vue="relais">
           <span class="ligne-icone"><svg viewBox="0 0 24 24" class="icone-svg" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"/></svg></span>
           <span class="ligne-textes">
-            <span class="ligne-titre">Import de recettes</span>
-            <span class="ligne-sous-titre">Adresse du relais</span>
+            <span class="ligne-titre">Relais (recettes et jeux)</span>
+            <span class="ligne-sous-titre">Import de recettes, recherche de jeux</span>
           </span>
           <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
         </button>
@@ -185,14 +185,14 @@
           </span>
           <svg viewBox="0 0 24 24" class="icone-svg chevron" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
         </button>
-        <!-- Mentions exigées par TMDB et RAWG -->
+        <!-- Mentions des sources : TMDB (exigée) et IGDB -->
         <footer class="mentions">
           <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">
             <img src="icons/tmdb.svg" alt="TMDB" width="120" height="16">
           </a>
           <p lang="en">This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
           <p>Jeux vidéo : données fournies par
-            <a href="https://rawg.io/" target="_blank" rel="noopener">RAWG</a>.</p>
+            <a href="https://www.igdb.com/" target="_blank" rel="noopener">IGDB</a>.</p>
         </footer>
       </div>
 
@@ -224,7 +224,8 @@
         <p id="message-sauvegarde" class="message" role="status" hidden></p>
       </div>
 
-      <!-- Clés API : TMDB (films, séries) et RAWG (jeux), gardées sur cet appareil -->
+      <!-- Clés API : TMDB (films, séries), gardée sur cet appareil.
+           Les jeux (IGDB) n'ont pas de clé dans l'app : elle est dans le relais. -->
       <div id="vue-cles" hidden>
         <form id="formulaire-cle" class="sauvegarde">
           <p class="aide">
@@ -242,31 +243,20 @@
           </div>
           <p id="message-cle" class="message" role="status" hidden></p>
         </form>
-        <form id="formulaire-cle-rawg" class="sauvegarde">
-          <p class="aide">
-            Clé API RAWG, pour chercher les jeux vidéo (à créer gratuitement sur
-            rawg.io, rubrique « API »). Mêmes règles : gardée uniquement sur cet
-            appareil.
-          </p>
-          <p id="etat-cle-rawg" class="aide"></p>
-          <input id="champ-cle-rawg" class="champ-reglage" type="password" autocomplete="off"
-                 autocapitalize="off" spellcheck="false" placeholder="Colle ta clé RAWG ici">
-          <div class="boutons-sauvegarde">
-            <button type="submit">Enregistrer la clé</button>
-            <button type="button" id="bouton-effacer-cle-rawg">Effacer la clé</button>
-          </div>
-          <p id="message-cle-rawg" class="message" role="status" hidden></p>
-        </form>
+        <p class="aide">
+          Jeux vidéo : la recherche passe par le relais (Réglages → Relais),
+          aucune clé à coller ici.
+        </p>
       </div>
 
-      <!-- Import de recettes : adresse du relais Cloudflare, gardée sur cet appareil -->
+      <!-- Relais Cloudflare (import de recettes, jeux IGDB) : adresse gardée sur cet appareil -->
       <div id="vue-relais" hidden>
         <form id="formulaire-relais" class="sauvegarde">
           <p class="aide">
             Adresse du relais qui permet d'importer une recette ou un cocktail
-            depuis un lien (mode d'emploi : relais/LISEZMOI-RELAIS.md). Elle est
-            gardée uniquement dans la mémoire de cet appareil : jamais envoyée
-            sur GitHub, jamais mise dans les exports.
+            depuis un lien, et de chercher les jeux vidéo (IGDB). Mode d'emploi :
+            relais/LISEZMOI-RELAIS.md. Elle est gardée uniquement dans la mémoire
+            de cet appareil : jamais envoyée sur GitHub, jamais mise dans les exports.
           </p>
           <p id="etat-relais" class="aide"></p>
           <label for="champ-relais" class="etiquette">Adresse du relais</label>
@@ -692,7 +682,7 @@
                   autocapitalize="sentences" placeholder="Note (facultatif)"></textarea>
       </div>
 
-      <!-- Film, Série, Jeu : résultats de la recherche TMDB / RAWG (remplis par
+      <!-- Film, Série, Jeu : résultats de la recherche TMDB / IGDB (remplis par
            app.js), puis « Ajouter « titre » tel quel », puis la source des données -->
       <div id="zone-resultats" class="feuille-defile">
         <p id="etat-recherche" class="aide" hidden></p>

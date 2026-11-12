@@ -6,7 +6,7 @@
 // ⚠️ Doit toujours être le même que NOM_CACHE dans service-worker.js
 // On reste en v1 : chaque changement, quel qu'il soit, ajoute 1 au second
 // numéro (v1.1 → v1.2 → v1.3…). (Avant le 10/11/2026 : v10 à v15.1.)
-const VERSION = "v1.21";
+const VERSION = "v1.22";
 
 // Noms sous lesquels on range les données dans la mémoire du téléphone
 const CLE_STOCKAGE = "mes-listes";
@@ -86,7 +86,7 @@ const recentsVide = document.getElementById("recents-vide");
 const liste = document.getElementById("liste");
 const messageVide = document.getElementById("message-vide");
 const mentionTmdb = document.getElementById("mention-tmdb");
-const mentionRawg = document.getElementById("mention-rawg");
+const mentionIgdb = document.getElementById("mention-igdb");
 const onglets = document.querySelectorAll(".onglet");
 // Dans le panneau Réglages
 const listeFaits = document.getElementById("liste-faits");
@@ -226,9 +226,9 @@ function allerA(page) {
     onglet.classList.toggle("actif", actif);
     onglet.toggleAttribute("aria-current", actif);
   }
-  // Mentions TMDB (films, séries) ou RAWG (jeux) en bas de la page
+  // Mentions TMDB (films, séries) ou IGDB (jeux) en bas de la page
   mentionTmdb.hidden = page !== "film" && page !== "serie";
-  mentionRawg.hidden = page !== "jeu";
+  mentionIgdb.hidden = page !== "jeu";
   window.scrollTo(0, 0);
   afficher(true);
 }
@@ -347,7 +347,7 @@ function domaine(lien) {
 // --- 4. Les actions ------------------------------------------
 // infos (facultatif) :
 // - TMDB (films, séries) : { annee, affiche, idTmdb } (+ idImdb, cherché juste après)
-// - RAWG (jeux)          : { annee, idRawg } (pas de jaquette, volontairement)
+// - IGDB (jeux)          : { annee, affiche (jaquette), idIgdb } (anciens jeux RAWG : { annee, idRawg })
 // - recette, cocktail    : { lien, note } (tous les deux facultatifs)
 //                          + les champs trouvés par « Importer » (CHAMPS_FICHE :
 //                          photos, ingrédients, étapes, portions, temps…)
@@ -363,6 +363,7 @@ function ajouter(titre, type, infos = null) {
     if (infos.affiche) el.affiche = infos.affiche;
     if (infos.idTmdb) el.idTmdb = infos.idTmdb;
     if (infos.idRawg) el.idRawg = infos.idRawg;
+    if (infos.idIgdb) el.idIgdb = infos.idIgdb;
     if (infos.lien) el.lien = infos.lien;
     if (infos.note) el.note = infos.note;
     if (estFiche(type)) {
@@ -380,13 +381,14 @@ function ajouter(titre, type, infos = null) {
   if (el.idTmdb) completerImdb(el);
 }
 
-// Retire les informations venues de TMDB ou RAWG (affiche, année, identifiants)
+// Retire les informations venues de TMDB, IGDB ou RAWG (affiche, année, identifiants)
 function retirerInfosExternes(el) {
   delete el.annee;
   delete el.affiche;
   delete el.idTmdb;
   delete el.idImdb;
   delete el.idRawg;
+  delete el.idIgdb;
 }
 
 // « Réduire les animations » activé sur le téléphone ?
@@ -440,7 +442,7 @@ function afficherEnDouceur() {
 // tel quel. Sans « recette », tout reste tel quel (gardé même si le type change).
 function modifier(id, titre, type, recette = null) {
   const el = elements.find((e) => e.id === id);
-  // Si le type change, les infos TMDB / RAWG ne correspondent plus
+  // Si le type change, les infos TMDB / IGDB ne correspondent plus
   // (un identifiant TMDB de film ne désigne pas la même chose côté séries)
   if (type !== el.type) retirerInfosExternes(el);
   el.titre = titre;
@@ -733,7 +735,7 @@ const VUES = {
   autres: { titre: "Anciens « Autre »", bloc: document.getElementById("vue-autres") },
   sauvegarde: { titre: "Sauvegarde", bloc: document.getElementById("vue-sauvegarde") },
   cles: { titre: "Clés API", bloc: document.getElementById("vue-cles") },
-  relais: { titre: "Import de recettes", bloc: document.getElementById("vue-relais") },
+  relais: { titre: "Relais (recettes et jeux)", bloc: document.getElementById("vue-relais") },
   gemini: { titre: "IA (Gemini)", bloc: document.getElementById("vue-gemini") },
 };
 
@@ -793,7 +795,7 @@ const boutonOuvrirIa = document.getElementById("bouton-ouvrir-ia");
 
 // Catégorie choisie dans le menu (film, serie, jeu, recette)
 let categorieAjout = "film";
-// true quand la recherche de jeux (RAWG) a échoué ou que la clé manque :
+// true quand la recherche de jeux (IGDB, via le relais) a échoué ou que le relais manque :
 // le calque passe en saisie manuelle jusqu'à sa fermeture
 let rechercheJeuxIndisponible = false;
 function categorieChoisie() {
@@ -820,7 +822,7 @@ const INDICATIONS = {
 const MENTIONS = {
   film: "Données films et séries fournies par TMDB",
   serie: "Données films et séries fournies par TMDB",
-  jeu: "Données jeux vidéo fournies par RAWG",
+  jeu: "Données jeux vidéo fournies par IGDB",
 };
 
 // Dernière ligne de la liste : « Ajouter « titre » tel quel », qui suit ce
@@ -890,7 +892,7 @@ function ouvrirAjout(type) {
   // Touche du clavier : « Rechercher » ou « OK » (lue par l'iPhone au focus)
   champTitre.enterKeyHint = avecRecherche ? "search" : "done";
   mentionSource.textContent = MENTIONS[type] || "";
-  rechercheJeuxIndisponible = false; // chaque ouverture retente RAWG
+  rechercheJeuxIndisponible = false; // chaque ouverture retente la recherche de jeux
   // Recette, cocktail : lien et note vides. Rien n'est lu dans le presse-papiers
   // à l'ouverture : seulement quand on touche « Coller le lien ».
   zoneRecette.hidden = !estFiche(type);
@@ -901,8 +903,8 @@ function ouvrirAjout(type) {
   mettreEnAvant(null);
   reinitialiserImport();
   masquerRecherche();
-  // Jeu sans clé RAWG : saisie manuelle tout de suite
-  if (type === "jeu" && lireCleRawg() === "") passerJeuxEnManuel(true);
+  // Jeu sans relais : saisie manuelle tout de suite
+  if (type === "jeu" && lireCle(CLE_RELAIS) === "") passerJeuxEnManuel(true);
   ajusterAuClavier();
   verrouillerPage();
   feuilleAjout.showModal();
@@ -966,7 +968,7 @@ if (window.visualViewport) {
 ajusterAuClavier(); // premières mesures (panneaux)
 
 // Saisie manuelle (« Ajouter » ou « Ajouter « titre » tel quel ») :
-// le titre tel qu'il est écrit, sans infos TMDB / RAWG
+// le titre tel qu'il est écrit, sans infos TMDB / IGDB
 function ajouterTelQuel() {
   const type = categorieChoisie();
   const titre = champTitre.value.trim();
@@ -1201,7 +1203,7 @@ for (const champ of [champTitre, champLien]) {
 // Touche Entrée du clavier :
 // - Film, Série, Jeu : lance la recherche tout de suite et ferme le clavier
 //   (pour voir tous les résultats) ;
-// - Recette, ou jeu quand la recherche RAWG est indisponible : ajoute l'élément.
+// - Recette, ou jeu quand la recherche de jeux est indisponible : ajoute l'élément.
 formulaire.addEventListener("submit", (evenement) => {
   evenement.preventDefault(); // empêche la page de se recharger
   if (sourcePourType(categorieChoisie()) && !rechercheJeuxIndisponible) {
@@ -2121,8 +2123,10 @@ const FORMAT_NOM = "mes-listes";
 // garde « photoId » et le fichier contient « photos » : { id: image JPEG
 // en texte }. Les anciennes photos « photoPerso » (versions 8 à 10) sont
 // rangées dans IndexedDB après l'import.
-// L'app sait lire les onze. Les clés (TMDB, RAWG, Gemini) n'y sont jamais.
-const FORMAT_VERSION = 11;
+// Version 12 : jeux venus d'IGDB : identifiant « idIgdb » et jaquette dans « affiche »
+// (adresse images.igdb.com) ; les anciens jeux RAWG gardent « idRawg ».
+// L'app sait lire les douze. Les clés (TMDB, Gemini) n'y sont jamais.
+const FORMAT_VERSION = 12;
 // Taille maximale d'une photo dans un fichier de sauvegarde (texte base64)
 const LONGUEUR_MAX_PHOTO_FICHIER = 5 * 1024 * 1024;
 
@@ -2277,12 +2281,21 @@ function verifierFichier(donnees) {
       if (el.type !== "jeu") throw new Error(`${numero} a un identifiant RAWG mais n'est pas un jeu.`);
       propre.idRawg = el.idRawg;
     }
+    // Infos IGDB (version 12, facultatives) : seulement pour les jeux
+    if (el.idIgdb !== undefined) {
+      if (!Number.isInteger(el.idIgdb) || el.idIgdb <= 0) throw new Error(`${numero} a un identifiant IGDB invalide.`);
+      if (el.type !== "jeu") throw new Error(`${numero} a un identifiant IGDB mais n'est pas un jeu.`);
+      propre.idIgdb = el.idIgdb;
+    }
     if (el.annee !== undefined) {
       if (!Number.isInteger(el.annee) || el.annee < 1800 || el.annee > 2200) throw new Error(`${numero} a une année invalide.`);
       propre.annee = el.annee;
     }
+    // Affiche : TMDB (films, séries) ou jaquette IGDB (jeux)
     if (el.affiche !== undefined) {
-      if (typeof el.affiche !== "string" || !el.affiche.startsWith(ADRESSE_AFFICHES)) {
+      const afficheTmdb = typeof el.affiche === "string" && el.affiche.startsWith(ADRESSE_AFFICHES);
+      const jaquetteIgdb = typeof el.affiche === "string" && el.type === "jeu" && MOTIF_JAQUETTE_IGDB.test(el.affiche);
+      if (!afficheTmdb && !jaquetteIgdb) {
         throw new Error(`${numero} a une adresse d'affiche invalide.`);
       }
       propre.affiche = el.affiche;
@@ -2477,11 +2490,17 @@ fenetreImport.addEventListener("close", () => {
   importEnAttente = null;
 });
 
-// --- 7. Les clés TMDB et RAWG et les appels -------------------
+// --- 7. La clé TMDB, et les appels (TMDB, relais pour les jeux) ---
 // Les clés sont rangées dans la mémoire de l'appareil (localStorage),
 // jamais dans un fichier du projet ni dans les exports.
 const CLE_TMDB = "mes-listes-cle-tmdb";
-const CLE_RAWG = "mes-listes-cle-rawg";
+// Ancienne clé RAWG (jeux), remplacée par IGDB via le relais en v1.22 :
+// effacée de l'appareil
+try {
+  localStorage.removeItem("mes-listes-cle-rawg");
+} catch {
+  // mémoire inaccessible : rien à faire
+}
 
 function lireCle(nomStockage) {
   try {
@@ -2491,7 +2510,6 @@ function lireCle(nomStockage) {
   }
 }
 const lireCleTmdb = () => lireCle(CLE_TMDB);
-const lireCleRawg = () => lireCle(CLE_RAWG);
 
 // Interroge TMDB. TMDB donne deux sortes de clés, on accepte les deux :
 // - la "clé d'API" courte (32 caractères) → ajoutée à l'adresse
@@ -2516,23 +2534,25 @@ async function appelerTmdb(chemin, parametres = {}, cle = lireCleTmdb()) {
   return reponse.json();
 }
 
-// Interroge RAWG (jeux vidéo). RAWG n'a qu'une sorte de clé : ajoutée à l'adresse.
-// RAWG tombe parfois en panne (erreur 522 qui met très longtemps à arriver) :
-// on abandonne au bout de 8 secondes, et toute réponse autre que 200 est un échec.
-const DELAI_RAWG = 8000;
-async function appelerRawg(chemin, parametres = {}, cle = lireCleRawg()) {
-  const adresse = new URL("https://api.rawg.io/api" + chemin);
+// Jeux vidéo : IGDB, interrogé par le relais (jamais depuis l'app : les
+// codes IGDB restent secrets chez Cloudflare). Le relais abandonne au bout
+// de 8 secondes ; l'app attend un peu plus, puis abandonne aussi. Toute
+// réponse autre que 200 est un échec (la saisie manuelle prend le relais).
+const DELAI_RELAIS_JEUX = 10000;
+// Jaquettes IGDB acceptées (adresse exacte, format t_cover_big)
+const MOTIF_JAQUETTE_IGDB = /^https:\/\/images\.igdb\.com\/igdb\/image\/upload\/t_cover_big\/[a-z0-9]+\.jpg$/i;
+async function appelerRelaisJeux(chemin, parametres = {}) {
+  const adresse = new URL(lireCle(CLE_RELAIS));
+  adresse.pathname = adresse.pathname.replace(/\/+$/, "") + chemin;
   for (const [nom, valeur] of Object.entries(parametres)) {
     adresse.searchParams.set(nom, valeur);
   }
-  adresse.searchParams.set("key", cle);
-  // AbortController : permet d'annuler l'appel quand le délai est dépassé
   const controle = new AbortController();
-  const minuteur = setTimeout(() => controle.abort(), DELAI_RAWG);
+  const minuteur = setTimeout(() => controle.abort(), DELAI_RELAIS_JEUX);
   try {
-    const reponse = await fetch(adresse, { signal: controle.signal });
+    const reponse = await fetch(adresse, { signal: controle.signal, credentials: "omit", cache: "no-store" });
     if (reponse.status !== 200) {
-      const erreur = new Error(`RAWG a répondu ${reponse.status}`);
+      const erreur = new Error(`Le relais a répondu ${reponse.status}`);
       erreur.statut = reponse.status;
       throw erreur;
     }
@@ -2542,13 +2562,12 @@ async function appelerRawg(chemin, parametres = {}, cle = lireCleRawg()) {
   }
 }
 
-// Une clé refusée : TMDB répond 401, RAWG répond 401 ou 403 selon les cas
+// Une clé refusée : TMDB répond 401
 const cleRefusee = (erreur) => erreur.statut === 401 || erreur.statut === 403;
 
-// Branche un formulaire de clé de la section « Réglages ».
-// Le même fonctionnement sert pour TMDB et RAWG :
-// - nom : "TMDB" ou "RAWG" (pour les messages)
-// - prefixe : fin des id HTML ("cle-rawg" → formulaire-cle-rawg, champ-cle-rawg…)
+// Branche un formulaire de clé de la section « Réglages » (TMDB) :
+// - nom : "TMDB" (pour les messages)
+// - prefixe : fin des id HTML ("cle" → formulaire-cle, champ-cle…)
 // - verifier(cle) : petit appel qui échoue si la clé est refusée
 function brancherCle(nom, nomStockage, prefixe, verifier) {
   const formulaire = document.getElementById(`formulaire-${prefixe}`);
@@ -2605,10 +2624,8 @@ function brancherCle(nom, nomStockage, prefixe, verifier) {
 }
 
 brancherCle("TMDB", CLE_TMDB, "cle", (cle) => appelerTmdb("/authentication", {}, cle));
-// RAWG n'a pas d'adresse pour tester une clé : on fait une mini-recherche
-brancherCle("RAWG", CLE_RAWG, "cle-rawg", (cle) => appelerRawg("/games", { page_size: 1 }, cle));
 
-// --- 7 ter. L'adresse du relais (import de recettes) ----------
+// --- 7 ter. L'adresse du relais (import de recettes, jeux) ----
 // Gardée uniquement sur l'appareil (localStorage), comme les clés.
 // Ce n'est pas un secret : on la réaffiche dans le champ pour la vérifier.
 {
@@ -2621,8 +2638,8 @@ brancherCle("RAWG", CLE_RAWG, "cle-rawg", (cle) => appelerRawg("/games", { page_
   const afficherEtatRelais = () => {
     const adresse = lireCle(CLE_RELAIS);
     etatRelais.textContent = adresse
-      ? "✅ Un relais est enregistré sur cet appareil : l'import de recettes est activé."
-      : "Aucun relais enregistré sur cet appareil : l'import est désactivé (l'ajout à la main reste possible).";
+      ? "✅ Un relais est enregistré sur cet appareil : l'import de recettes et la recherche de jeux sont activés."
+      : "Aucun relais enregistré sur cet appareil : l'import de recettes et la recherche de jeux sont désactivés (l'ajout à la main reste possible).";
     champRelais.value = adresse;
     boutonEffacerRelais.hidden = !adresse;
   };
@@ -2642,7 +2659,7 @@ brancherCle("RAWG", CLE_RAWG, "cle-rawg", (cle) => appelerRawg("/games", { page_
     // On ne garde que le site et le chemin (pas de « ?… » ni de « #… »)
     localStorage.setItem(CLE_RELAIS, adresse.origin + adresse.pathname);
     afficherEtatRelais();
-    afficherMessage("Adresse enregistrée. L'import de recettes est activé.", true, messageRelais);
+    afficherMessage("Adresse enregistrée. L'import de recettes et la recherche de jeux sont activés.", true, messageRelais);
   });
 
   boutonEffacerRelais.addEventListener("click", () => {
@@ -2782,7 +2799,7 @@ async function completerImdbManquants() {
   }
 }
 
-// --- 8. La recherche : films et séries (TMDB), jeux (RAWG) ----
+// --- 8. La recherche : films et séries (TMDB), jeux (IGDB) ----
 const etatRecherche = document.getElementById("etat-recherche");
 const resultatsRecherche = document.getElementById("resultats-recherche");
 
@@ -2822,15 +2839,20 @@ function convertirResultatTmdb(r) {
   };
 }
 
-// Transforme un résultat RAWG en { titre, type, annee, idRawg }.
-// Pas de jaquette : on ignore volontairement les images de RAWG.
-function convertirResultatRawg(r) {
-  const annee = parseInt((r.released || "").slice(0, 4), 10);
+// Transforme un résultat IGDB (renvoyé par le relais) en
+// { titre, type, annee, affiche, idIgdb } — même forme que pour TMDB.
+// Les plateformes ne servent qu'à l'affichage dans la liste de résultats.
+function convertirResultatIgdb(r) {
+  const affiche = typeof r.jaquette === "string" && MOTIF_JAQUETTE_IGDB.test(r.jaquette) ? r.jaquette : null;
   return {
-    titre: r.name,
+    titre: typeof r.nom === "string" ? r.nom.trim().slice(0, 200) : "",
     type: "jeu",
-    annee: Number.isInteger(annee) ? annee : null,
-    idRawg: r.id,
+    annee: Number.isInteger(r.annee) && r.annee >= 1800 && r.annee <= 2200 ? r.annee : null,
+    affiche,
+    idIgdb: Number.isInteger(r.id) && r.id > 0 ? r.id : null,
+    plateformes: Array.isArray(r.plateformes)
+      ? r.plateformes.filter((p) => typeof p === "string").slice(0, 3).map((p) => p.slice(0, 40))
+      : [],
   };
 }
 
@@ -2852,13 +2874,15 @@ const SOURCES = {
         .map(convertirResultatTmdb);
     },
   },
-  rawg: {
-    nom: "RAWG",
-    lireCle: lireCleRawg,
-    // RAWG ne propose pas de langue : les titres sont ceux de RAWG (souvent en anglais)
+  igdb: {
+    nom: "IGDB",
+    // Pas de clé dans l'app : il faut seulement l'adresse du relais
+    lireCle: () => lireCle(CLE_RELAIS),
+    // Titres d'IGDB, souvent en anglais (IGDB ne propose pas le français)
     chercher: async (texte) => {
-      const donnees = await appelerRawg("/games", { search: texte, page_size: 8 });
-      return donnees.results.slice(0, 8).map(convertirResultatRawg);
+      const donnees = await appelerRelaisJeux("/igdb/recherche", { q: texte });
+      if (!Array.isArray(donnees)) throw new Error("réponse illisible");
+      return donnees.map(convertirResultatIgdb).filter((r) => r.titre && r.idIgdb).slice(0, 8);
     },
   },
 };
@@ -2866,7 +2890,7 @@ const SOURCES = {
 // Quel service interroger selon le type choisi (aucun pour recette, cocktail, autre)
 function sourcePourType(type) {
   if (type === "film" || type === "serie") return SOURCES.tmdb;
-  if (type === "jeu") return SOURCES.rawg;
+  if (type === "jeu") return SOURCES.igdb;
   return null;
 }
 
@@ -2893,21 +2917,21 @@ function creerVignette(affiche, type) {
   return image;
 }
 
-// Recherche de jeux impossible (RAWG en panne, trop lent, hors ligne, clé
-// absente ou refusée) : message simple, sans détail technique, et le calque
-// passe en saisie manuelle (bouton orange « Ajouter », la touche Entrée
-// ajoute). Le jeu sera créé avec le titre tapé, sans infos RAWG.
-// On ne réessaie plus RAWG avant la prochaine ouverture du calque.
+// Recherche de jeux impossible (relais absent, IGDB en panne, trop lent,
+// hors ligne) : message simple, sans détail technique, et le calque passe
+// en saisie manuelle (bouton orange « Ajouter », la touche Entrée ajoute).
+// Le jeu sera créé avec le titre tapé, sans infos IGDB.
+// On ne réessaie plus avant la prochaine ouverture du calque.
 const MESSAGE_JEUX_INDISPONIBLE = "Recherche de jeux indisponible pour le moment. Vous pouvez ajouter le jeu manuellement.";
-function passerJeuxEnManuel(cleAbsente) {
+function passerJeuxEnManuel(relaisAbsent) {
   rechercheJeuxIndisponible = true;
   clearTimeout(minuteurRecherche);
   numeroRecherche++; // une réponse encore en route sera ignorée
   afficherEtatRecherche(MESSAGE_JEUX_INDISPONIBLE);
-  if (cleAbsente) {
+  if (relaisAbsent) {
     const indication = document.createElement("span");
     indication.className = "indication";
-    indication.textContent = "Clé RAWG à renseigner dans Réglages → Clés API.";
+    indication.textContent = "Adresse du relais à renseigner dans Réglages → Relais (recettes et jeux).";
     etatRecherche.append(indication);
   }
   ajoutDirect.hidden = false;
@@ -2918,7 +2942,7 @@ async function rechercher() {
   const texte = champTitre.value.trim();
   const type = categorieChoisie();
 
-  // Jeux en saisie manuelle : on garde le message, plus d'appel à RAWG
+  // Jeux en saisie manuelle : on garde le message, plus d'appel au relais
   if (type === "jeu" && rechercheJeuxIndisponible) return;
 
   // La recherche concerne les films, séries et jeux, à partir de 2 lettres
@@ -2927,12 +2951,12 @@ async function rechercher() {
     masquerRecherche();
     return;
   }
-  // Jeux : clé absente ou hors ligne → saisie manuelle
-  if (source === SOURCES.rawg && source.lireCle() === "") {
+  // Jeux : relais absent ou hors ligne → saisie manuelle
+  if (source === SOURCES.igdb && source.lireCle() === "") {
     passerJeuxEnManuel(true);
     return;
   }
-  if (source === SOURCES.rawg && !navigator.onLine) {
+  if (source === SOURCES.igdb && !navigator.onLine) {
     passerJeuxEnManuel(false);
     return;
   }
@@ -2954,8 +2978,8 @@ async function rechercher() {
     resultats = await source.chercher(texte);
   } catch (erreur) {
     if (numero !== numeroRecherche) return;
-    // Jeux : panne, délai de 8 s dépassé, réponse illisible, clé refusée…
-    if (source === SOURCES.rawg) {
+    // Jeux : relais ou IGDB en panne, délai dépassé, réponse illisible…
+    if (source === SOURCES.igdb) {
       passerJeuxEnManuel(false);
       return;
     }
@@ -2991,8 +3015,9 @@ async function rechercher() {
 
     const details = document.createElement("span");
     details.className = "details";
-    const nomType = NOMS_SIMPLES[res.type];
-    details.textContent = res.annee ? `${nomType} · ${res.annee}` : nomType;
+    // « Jeu · 2015 · PC, PlayStation 4 » (plateformes : jeux seulement)
+    details.textContent = [NOMS_SIMPLES[res.type], res.annee, (res.plateformes || []).join(", ")]
+      .filter(Boolean).join(" · ");
 
     const textes = document.createElement("span");
     textes.className = "textes";
